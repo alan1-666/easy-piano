@@ -1,0 +1,2 @@
+ALTER TABLE lessons DROP CONSTRAINT IF EXISTS fk_lessons_song_id;
+DROP TABLE IF EXISTS songs;

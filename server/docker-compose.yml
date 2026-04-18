@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: easypiano-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: easypiano
+      POSTGRES_PASSWORD: easypiano2026
+      POSTGRES_DB: easypiano
+    ports:
+      - "15432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: easypiano-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+  server:
+    build: .
+    container_name: easypiano-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: "8080"
+      SERVER_MODE: release
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: easypiano
+      DB_PASSWORD: easypiano2026
+      DB_NAME: easypiano
+      DB_SSLMODE: disable
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ""
+      JWT_SECRET: ep-jwt-secret-prod-2026-change-this
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  pgdata:
+  redisdata:
