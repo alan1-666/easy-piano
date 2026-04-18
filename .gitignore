@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.expo/
+
+# Build
+dist/
+build/
+*.ipa
+*.apk
+
+# Go
+server/tmp/
+server/vendor/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
