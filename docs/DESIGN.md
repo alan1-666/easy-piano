@@ -1,6 +1,6 @@
 # EasyPiano - 游戏化钢琴学习 App 设计文档
 
-> 版本: v0.1.0 | 更新日期: 2026-04-18
+> 版本: v0.2.0 | 更新日期: 2026-04-18
 
 ---
 
@@ -14,9 +14,15 @@
 6. [数据模型设计](#6-数据模型设计)
 7. [API 设计](#7-api-设计)
 8. [MIDI 技术方案](#8-midi-技术方案)
-9. [游戏引擎设计](#9-游戏引擎设计)
-10. [项目结构](#10-项目结构)
-11. [实施路线图](#11-实施路线图)
+9. [音频引擎方案](#9-音频引擎方案)
+10. [游戏引擎设计](#10-游戏引擎设计)
+11. [离线模式设计](#11-离线模式设计)
+12. [容错与错误处理](#12-容错与错误处理)
+13. [测试策略](#13-测试策略)
+14. [部署与运维](#14-部署与运维)
+15. [国际化设计](#15-国际化设计)
+16. [项目结构](#16-项目结构)
+17. [实施路线图](#17-实施路线图)
 
 ---
 
@@ -43,9 +49,22 @@
 
 ### 1.4 平台策略
 
-- **Phase 1**: iOS (优先)
+- **Phase 1**: iOS + iPadOS (琴童用户以 iPad 为主，放谱架上体验最佳，需同步适配)
 - **Phase 2**: Android (React Native 跨平台复用)
-- **Phase 3**: iPadOS 适配 (大屏体验优化)
+
+### 1.5 商业模式
+
+| 模式 | 内容 | 说明 |
+|------|------|------|
+| **免费层** | Level 1 全部课程 + 5首免费曲库 | 降低入门门槛，让用户体验核心价值 |
+| **订阅制** | ¥28/月 或 ¥198/年 | 解锁全部课程 + 完整曲库 + 排行榜 |
+| **终身买断** | ¥498 一次性 | 针对长期用户，降低决策成本 |
+| **单曲购买** | ¥3-6/首 | 非订阅用户按需购买热门曲目 |
+
+设计影响：
+- 数据模型需增加 `subscriptions` 表和 `song_purchases` 表
+- API 需要权限校验中间件，根据订阅状态决定内容访问权限
+- 曲目和课程数据需增加 `is_free` 标记字段
 
 ---
 
@@ -98,6 +117,7 @@
 | **状态管理** | Zustand | 5.x | 轻量、TypeScript 友好、性能好 |
 | **导航** | Expo Router | 4.x | 基于文件系统路由，开发体验好 |
 | **MIDI 连接** | CoreMIDI (Native Module) | — | iOS 原生 MIDI 框架，延迟最低 |
+| **音频引擎** | AUGraph + SoundFont (Native Module) | — | 虚拟键盘音色、示范播放、节拍器，低延迟 |
 | **后端框架** | Go + Gin | 1.22+ | 高性能、并发好，用户指定 |
 | **ORM** | GORM | 2.x | Go 生态最成熟的 ORM |
 | **数据库** | PostgreSQL | 16+ | 关系型，适合课程/用户数据 |
@@ -234,6 +254,36 @@ require (
 | Skia 渲染 | < 16ms | 一帧时间 (60fps) |
 | **总计 (USB)** | **< 25ms** | 可接受 |
 | **总计 (BLE)** | **< 35ms** | 可接受 |
+
+#### 降级方案
+
+当 JS 线程繁忙（如 Skia 渲染密集帧期间），Native → JS Bridge 延迟可能飙升到 20ms+。应对策略：
+
+1. **延迟监测**: 运行时统计每次 MIDI 事件从 Native 到 JS 的实际延迟，展示在开发者调试面板
+2. **关键逻辑下沉**: 如果监测发现延迟持续超标，将 `findMatchingNote` 音符匹配逻辑下沉到 Swift Native 层，JS 层只接收匹配结果
+3. **时间戳校正**: 所有 MIDI 事件使用 CoreMIDI 的 `MIDITimeStamp`（mach_absolute_time 精度），而非 JS 层接收时间，消除过桥延迟对评分精度的影响
+
+### 4.4 时间同步机制
+
+游戏中的时间基准至关重要，直接影响评分准确性：
+
+```
+时间源选择:
+┌─────────────────────────────────────────────────────────────┐
+│  CoreMIDI MIDITimeStamp (mach_absolute_time)                │
+│  ↓ 转换为毫秒                                                │
+│  Native Module 记录 MIDI 事件绝对时间                         │
+│  ↓ 传递到 JS                                                 │
+│  GameEngine 使用绝对时间做匹配 (非 deltaTime 累加)              │
+│  ↓                                                           │
+│  NoteScheduler 基于绝对时间计算音符位置 (容忍帧率波动)           │
+└─────────────────────────────────────────────────────────────┘
+
+关键原则:
+- 音符位置 = f(absoluteTime, songStartTime, bpm)，非 deltaTime 累加
+- MIDI 事件时间戳来自 CoreMIDI，不受 JS 线程阻塞影响
+- Skia 渲染帧率不稳定时，音符位置仍然准确（因为每帧根据绝对时间重新计算）
+```
 
 ---
 
@@ -451,6 +501,8 @@ interface MIDIModule {
 | 练习记录 | 每次练习时长/曲目/评分 | P0 |
 | 进度同步 | 多设备进度云同步 | P0 |
 | 个人主页 | 练习统计、成就展示 | P1 |
+| 家长控制 | 儿童账号绑定家长、练习时长限制、内容过滤 | P1 |
+| 用户设置 | 下落速度偏好、左右手颜色、音色选择等个性化配置 | P1 |
 
 ### 5.6 游戏化系统 (P1)
 
@@ -545,10 +597,15 @@ interface MIDIModule {
 │ email        │     │ description  │     │ artist       │
 │ phone        │     │ level        │     │ difficulty   │
 │ avatar_url   │     │ order_index  │     │ bpm          │
-│ password_hash│     │ created_at   │     │ duration     │
-│ level        │     └──────┬───────┘     │ midi_data    │
+│ password_hash│     │ is_free      │     │ duration     │
+│ apple_id     │     │ created_at   │     │ time_sig     │
+│ wechat_openid│     └──────┬───────┘     │ key_sig      │
+│ level        │            │             │ midi_data    │
 │ xp           │            │             │ tags         │
-│ created_at   │            │             │ cover_url    │
+│ parent_id    │ (家长账号)   │             │ cover_url    │
+│ is_child     │            │             │ is_free      │
+│ created_at   │            │             │ locale       │
+│ deleted_at   │ (软删除)    │             │ created_at   │
 └──────┬───────┘     ┌──────┴───────┐     └──────┬───────┘
        │             │   lessons    │            │
        │             ├──────────────┤            │
@@ -575,25 +632,39 @@ interface MIDIModule {
                      │ completed_at │
                      └──────────────┘
 
-┌──────────────┐     ┌──────────────────┐
-│ practice_logs│     │  achievements    │
-├──────────────┤     ├──────────────────┤
-│ id           │     │ id               │
-│ user_id      │     │ name             │
-│ song_id      │     │ description      │
-│ mode         │     │ icon             │
-│ score        │     │ condition_type   │
-│ accuracy     │     │ condition_value  │
-│ max_combo    │     └────────┬─────────┘
-│ perfect_count│              │
-│ great_count  │     ┌────────┴─────────┐
-│ good_count   │     │ user_achievements│
-│ miss_count   │     ├──────────────────┤
-│ duration     │     │ id               │
-│ played_at    │     │ user_id          │
-└──────────────┘     │ achievement_id   │
-                     │ unlocked_at      │
-                     └──────────────────┘
+┌──────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│ practice_logs│     │  achievements    │     │  subscriptions   │
+├──────────────┤     ├──────────────────┤     ├──────────────────┤
+│ id           │     │ id               │     │ id               │
+│ user_id      │     │ name             │     │ user_id          │
+│ song_id      │     │ description      │     │ plan             │ (monthly/yearly/lifetime)
+│ mode         │     │ icon             │     │ status           │ (active/expired/cancelled)
+│ speed        │     │ condition_type   │     │ started_at       │
+│ score        │     │ condition_value  │     │ expires_at       │
+│ accuracy     │     └────────┬─────────┘     │ apple_tx_id      │
+│ max_combo    │              │               └──────────────────┘
+│ perfect_count│     ┌────────┴─────────┐
+│ great_count  │     │ user_achievements│     ┌──────────────────┐
+│ good_count   │     ├──────────────────┤     │  song_purchases  │
+│ miss_count   │     │ id               │     ├──────────────────┤
+│ duration     │     │ user_id          │     │ id               │
+│ played_at    │     │ achievement_id   │     │ user_id          │
+│ synced       │     │ unlocked_at      │     │ song_id          │
+└──────────────┘     └──────────────────┘     │ purchased_at     │
+                                              │ apple_tx_id      │
+┌──────────────────┐                          └──────────────────┘
+│  user_settings   │
+├──────────────────┤
+│ id               │
+│ user_id          │
+│ fall_speed       │  (默认下落速度偏好)
+│ left_hand_color  │
+│ right_hand_color │
+│ sound_font       │  (音色选择)
+│ metronome_on     │
+│ daily_goal_min   │  (每日练习目标分钟数)
+│ locale           │  (语言偏好)
+└──────────────────┘
 ```
 
 ### 6.2 Go Model 定义
@@ -601,30 +672,39 @@ interface MIDIModule {
 ```go
 // model/user.go
 type User struct {
-    ID           uint      `gorm:"primaryKey"`
-    Username     string    `gorm:"uniqueIndex;size:50"`
-    Email        string    `gorm:"uniqueIndex;size:100"`
-    Phone        string    `gorm:"uniqueIndex;size:20"`
-    PasswordHash string    `gorm:"size:255"`
-    AvatarURL    string    `gorm:"size:500"`
-    Level        int       `gorm:"default:1"`
-    XP           int       `gorm:"default:0"`
-    CreatedAt    time.Time
-    UpdatedAt    time.Time
+    ID            uint           `gorm:"primaryKey"`
+    Username      string         `gorm:"uniqueIndex;size:50"`
+    Email         string         `gorm:"uniqueIndex;size:100"`
+    Phone         string         `gorm:"uniqueIndex;size:20"`
+    PasswordHash  string         `gorm:"size:255"`
+    AppleID       string         `gorm:"uniqueIndex;size:200"`
+    WechatOpenID  string         `gorm:"uniqueIndex;size:200"`
+    AvatarURL     string         `gorm:"size:500"`
+    Level         int            `gorm:"default:1"`
+    XP            int            `gorm:"default:0"`
+    ParentID      *uint          `gorm:"index"`
+    IsChild       bool           `gorm:"default:false"`
+    CreatedAt     time.Time
+    UpdatedAt     time.Time
+    DeletedAt     gorm.DeletedAt `gorm:"index"`
 }
 
 // model/song.go
 type Song struct {
-    ID         uint           `gorm:"primaryKey"`
-    Title      string         `gorm:"size:200"`
-    Artist     string         `gorm:"size:100"`
-    Difficulty int            `gorm:"index"`
-    BPM        int
-    Duration   int            // 秒
-    MidiData   datatypes.JSON // 曲目JSON数据
-    Tags       datatypes.JSON
-    CoverURL   string         `gorm:"size:500"`
-    CreatedAt  time.Time
+    ID            uint           `gorm:"primaryKey"`
+    Title         string         `gorm:"size:200"`
+    Artist        string         `gorm:"size:100"`
+    Difficulty    int            `gorm:"index"`
+    BPM           int
+    Duration      int            // 秒
+    TimeSignature string         `gorm:"size:10"`  // "4/4", "3/4"
+    KeySignature  string         `gorm:"size:10"`  // "C", "G", "Am"
+    MidiData      datatypes.JSON // 曲目JSON数据
+    Tags          datatypes.JSON
+    CoverURL      string         `gorm:"size:500"`
+    IsFree        bool           `gorm:"default:false;index"`
+    Locale        string         `gorm:"size:10;default:'zh-CN'"`
+    CreatedAt     time.Time
 }
 
 // model/practice_log.go
@@ -632,7 +712,8 @@ type PracticeLog struct {
     ID           uint      `gorm:"primaryKey"`
     UserID       uint      `gorm:"index"`
     SongID       uint      `gorm:"index"`
-    Mode         string    `gorm:"size:20"` // standard/wait/free
+    Mode         string    `gorm:"size:20"`  // standard/wait/free
+    Speed        float64   `gorm:"default:1.0"` // 0.25 ~ 2.0
     Score        int
     Accuracy     float64   // 0.0 ~ 1.0
     MaxCombo     int
@@ -642,6 +723,33 @@ type PracticeLog struct {
     MissCount    int
     Duration     int       // 秒
     PlayedAt     time.Time `gorm:"index"`
+    Synced       bool      `gorm:"default:true"` // 离线记录同步标记
+}
+
+// model/subscription.go
+type Subscription struct {
+    ID         uint      `gorm:"primaryKey"`
+    UserID     uint      `gorm:"index"`
+    Plan       string    `gorm:"size:20"` // monthly/yearly/lifetime
+    Status     string    `gorm:"size:20"` // active/expired/cancelled
+    StartedAt  time.Time
+    ExpiresAt  *time.Time
+    AppleTxID  string    `gorm:"size:200"`
+    CreatedAt  time.Time
+    UpdatedAt  time.Time
+}
+
+// model/user_settings.go
+type UserSettings struct {
+    ID             uint    `gorm:"primaryKey"`
+    UserID         uint    `gorm:"uniqueIndex"`
+    FallSpeed      float64 `gorm:"default:1.0"`
+    LeftHandColor  string  `gorm:"size:7;default:'#4A90D9'"`
+    RightHandColor string  `gorm:"size:7;default:'#50C878'"`
+    SoundFont      string  `gorm:"size:50;default:'default'"`
+    MetronomeOn    bool    `gorm:"default:false"`
+    DailyGoalMin   int     `gorm:"default:30"`
+    Locale         string  `gorm:"size:10;default:'zh-CN'"`
 }
 ```
 
@@ -661,6 +769,7 @@ Base URL: `https://api.easypiano.app/v1`
 | `/auth/login` | POST | 登录 |
 | `/auth/refresh` | POST | 刷新 Token |
 | `/auth/apple` | POST | Apple ID 登录 |
+| `/auth/wechat` | POST | 微信登录 |
 
 #### 用户
 
@@ -669,6 +778,10 @@ Base URL: `https://api.easypiano.app/v1`
 | `/users/me` | GET | 获取当前用户信息 |
 | `/users/me` | PUT | 更新用户信息 |
 | `/users/me/stats` | GET | 获取练习统计 |
+| `/users/me/settings` | GET | 获取用户设置 |
+| `/users/me/settings` | PUT | 更新用户设置 |
+| `/users/me/children` | GET | 获取绑定的儿童账号列表 |
+| `/users/me/children` | POST | 创建儿童账号 |
 
 #### 课程
 
@@ -691,8 +804,18 @@ Base URL: `https://api.easypiano.app/v1`
 | 端点 | 方法 | 描述 |
 |------|------|------|
 | `/practice/log` | POST | 上传练习记录 |
+| `/practice/sync` | POST | 批量同步离线练习记录 |
 | `/practice/history` | GET | 练习历史 |
 | `/practice/streak` | GET | 连续打卡天数 |
+
+#### 订阅 & 购买
+
+| 端点 | 方法 | 描述 |
+|------|------|------|
+| `/subscription/status` | GET | 当前订阅状态 |
+| `/subscription/verify` | POST | 验证 Apple IAP 收据 |
+| `/purchases/songs` | GET | 已购买曲目列表 |
+| `/purchases/songs` | POST | 购买单曲 (验证收据) |
 
 #### 排行榜 (P1)
 
@@ -810,6 +933,65 @@ Response:
 }
 ```
 
+### 7.3 API 安全设计
+
+#### Rate Limiting
+
+| 端点类型 | 限制 | 说明 |
+|---------|------|------|
+| `/auth/login` | 5次/分钟/IP | 防暴力破解 |
+| `/auth/register` | 3次/小时/IP | 防批量注册 |
+| 通用 API | 60次/分钟/用户 | 正常使用足够 |
+| `/practice/log` | 10次/分钟/用户 | 防刷分 |
+
+实现：Redis 滑动窗口计数器 + Gin 中间件
+
+#### 防作弊机制
+
+客户端上报分数天然不可信，需要多层防护：
+
+1. **服务端合理性校验**: 根据曲目音符总数、时长、BPM 计算理论最高分，拒绝超出范围的分数
+2. **统计异常检测**: 短时间内分数飙升、准确率异常（如突然从 60% 跳到 99%）触发标记
+3. **排行榜延迟生效**: 异常分数不立即上榜，人工审核后生效
+4. **关键校验公式**:
+   ```
+   max_possible_score = total_notes × 100 × max_combo_multiplier(3.0)
+   if submitted_score > max_possible_score: reject
+   if perfect_count + great_count + good_count + miss_count != total_notes: reject
+   ```
+
+#### 输入校验
+
+所有 API 入参使用 `go-playground/validator` 做结构体校验：
+
+```go
+type PracticeLogRequest struct {
+    SongID       uint    `json:"song_id" binding:"required"`
+    Mode         string  `json:"mode" binding:"required,oneof=standard wait free"`
+    Speed        float64 `json:"speed" binding:"required,min=0.25,max=2.0"`
+    Score        int     `json:"score" binding:"min=0"`
+    Accuracy     float64 `json:"accuracy" binding:"min=0,max=1"`
+    MaxCombo     int     `json:"max_combo" binding:"min=0"`
+    PerfectCount int     `json:"perfect_count" binding:"min=0"`
+    GreatCount   int     `json:"great_count" binding:"min=0"`
+    GoodCount    int     `json:"good_count" binding:"min=0"`
+    MissCount    int     `json:"miss_count" binding:"min=0"`
+    Duration     int     `json:"duration" binding:"required,min=1,max=7200"`
+}
+```
+
+#### 内容权限控制
+
+```
+中间件链: Auth → SubscriptionCheck → Handler
+
+SubscriptionCheck 逻辑:
+1. 查询用户订阅状态 (Redis 缓存，TTL 5min)
+2. 免费内容 (is_free=true): 直接放行
+3. 付费内容: 需要 active 订阅 或 单曲购买记录
+4. 无权限: 返回 403 + 订阅引导信息
+```
+
 ---
 
 ## 8. MIDI 技术方案
@@ -919,9 +1101,103 @@ MIDI Note Number → 音名 → 键盘位置
 
 ---
 
-## 9. 游戏引擎设计
+## 9. 音频引擎方案
 
-### 9.1 核心游戏循环
+### 9.1 音频需求分析
+
+| 场景 | 需求 | 延迟要求 |
+|------|------|---------|
+| 虚拟键盘音色 | 用户点击屏幕键盘或无外接设备时发声 | < 10ms |
+| 示范演奏 | 播放曲目的示范音频，配合下落音符 | 无严格要求 |
+| 节拍器 | 练习时提供节拍参考 | < 5ms (需与视觉节拍同步) |
+| 命中音效 | Perfect/Great/Miss 等反馈音效 | < 20ms |
+| MIDI 输入回声 | 用户弹奏时，App 同时发出钢琴音色 | < 10ms |
+
+### 9.2 技术选型
+
+```
+┌──────────────────────────────────────────────────┐
+│              AudioEngine Native Module (Swift)    │
+│                                                  │
+│  ┌────────────────┐  ┌──────────────────────┐   │
+│  │  AVAudioEngine  │  │  AUSampler (SF2)     │   │
+│  │  (音频图管理)    │  │  (SoundFont 钢琴音色) │   │
+│  └───────┬────────┘  └──────────┬───────────┘   │
+│          │                       │               │
+│  ┌───────┴───────────────────────┴───────────┐   │
+│  │            Audio Processing Graph          │   │
+│  │  SoundFont → Sampler → Mixer → Output     │   │
+│  └───────────────────────────────────────────┘   │
+│                                                  │
+│  ┌────────────────┐  ┌──────────────────────┐   │
+│  │  SFX Player    │  │  Metronome           │   │
+│  │  (命中音效)     │  │  (节拍器)             │   │
+│  └────────────────┘  └──────────────────────┘   │
+└──────────────────────────────────────────────────┘
+```
+
+选择 `AVAudioEngine + AUSampler` 而非第三方库的理由：
+- iOS 系统原生，无额外依赖
+- 延迟可控（可配置 buffer size 降到 ~5ms）
+- 原生支持 SoundFont (.sf2) 格式，钢琴音色质量高
+- 与 CoreMIDI 同在 Native 层，不需要过桥就能响应 MIDI 输入
+
+### 9.3 音频模块接口
+
+```typescript
+interface AudioModule {
+  // 音色管理
+  loadSoundFont(name: string): Promise<void>;
+  setSoundFont(name: string): Promise<void>;
+  getAvailableSoundFonts(): Promise<string[]>;
+
+  // 音符播放
+  playNote(note: number, velocity: number): void;
+  stopNote(note: number): void;
+  stopAllNotes(): void;
+
+  // MIDI 回声 (Native 层直连，不过 JS Bridge)
+  enableMIDIEcho(enabled: boolean): void;
+
+  // 示范播放
+  playSong(midiData: object, bpm: number): Promise<void>;
+  pauseSong(): void;
+  resumeSong(): void;
+  seekSong(positionMs: number): void;
+
+  // 节拍器
+  startMetronome(bpm: number, timeSignature: string): void;
+  stopMetronome(): void;
+  setMetronomeBPM(bpm: number): void;
+
+  // 音效
+  playSFX(name: 'perfect' | 'great' | 'good' | 'miss' | 'combo_break' | 'level_up'): void;
+}
+```
+
+### 9.4 MIDI 回声优化
+
+为了实现最低延迟的弹奏音色反馈，MIDI 输入触发音色应在 **Native 层直连**，不经过 JS Bridge：
+
+```
+电钢琴 → CoreMIDI → MIDIManager
+                        ├── (1) sendEvent → JS (用于游戏引擎匹配，可有延迟)
+                        └── (2) AudioEngine.playNote() (Native 层直连，< 2ms)
+```
+
+### 9.5 内置 SoundFont 策略
+
+| 音色 | 文件大小 | 用途 |
+|------|---------|------|
+| Piano-Basic.sf2 | ~5MB | 内置默认音色，App 随包发布 |
+| Piano-Concert.sf2 | ~30MB | 高品质音色，首次使用时按需下载 |
+| Piano-Bright.sf2 | ~15MB | 明亮音色，按需下载 |
+
+---
+
+## 10. 游戏引擎设计
+
+### 10.1 核心游戏循环
 
 ```typescript
 // engine/GameEngine.ts
@@ -969,7 +1245,7 @@ class GameEngine {
 }
 ```
 
-### 9.2 Skia 渲染层
+### 10.2 Skia 渲染层
 
 ```typescript
 // components/FallingNotes/FallingNotesCanvas.tsx
@@ -1012,7 +1288,32 @@ const FallingNotesCanvas: React.FC<Props> = ({ frameData, keyboardLayout }) => {
 };
 ```
 
-### 9.3 状态管理
+#### 性能优化策略
+
+Skia Canvas 内使用声明式 JSX `.map()` 渲染大量音符时，每帧创建新的 React 元素会引发 GC 抖动。优化方案：
+
+1. **使用 imperative API**: 密集音符区域改用 `canvas.drawRect()` 直接绘制，避免 React reconciliation
+2. **可见区域裁剪**: 只渲染屏幕内可见的音符（判定线上方 1.5 屏到判定线下方 0.2 屏）
+3. **对象池**: 复用 `RoundedRect` 渲染对象，避免每帧 new/gc
+4. **分层渲染**: 静态元素（网格线、判定线）和动态元素（音符、特效）分 Canvas 层，静态层不重绘
+
+```typescript
+// 优化后的渲染方式 - 使用 useDrawCallback
+const onDraw = useDrawCallback((canvas, paint) => {
+  // 静态元素跳过 (由另一层处理)
+
+  // 动态音符 - 直接绘制，无 React 元素创建
+  for (const note of visibleNotes) {
+    paint.setColor(getNoteColor(note));
+    canvas.drawRRect(
+      rrect(getNoteX(note), note.currentY, getNoteWidth(note), getNoteHeight(note), 4, 4),
+      paint
+    );
+  }
+}, [visibleNotes]);
+```
+
+### 10.3 状态管理
 
 ```typescript
 // stores/gameStore.ts
@@ -1066,7 +1367,265 @@ interface MIDIStore {
 
 ---
 
-## 10. 项目结构
+## 11. 离线模式设计
+
+### 11.1 离线能力矩阵
+
+| 功能 | 离线可用 | 说明 |
+|------|---------|------|
+| 已下载曲目练习 | ✅ | 曲谱数据缓存在本地 |
+| 评分与游戏核心 | ✅ | 纯本地计算，不依赖网络 |
+| 课程学习 | ✅ | 课程内容预下载 |
+| 成就解锁 | ✅ | 本地判定，联网后同步 |
+| 练习记录 | ✅ | 本地暂存，联网后同步 |
+| 曲库浏览/下载新曲 | ❌ | 需要网络 |
+| 排行榜 | ❌ | 需要网络 |
+| 注册/登录 | ❌ | 需要网络 |
+
+### 11.2 本地存储方案
+
+```
+┌────────────────────────────────────────────────┐
+│                  本地存储架构                     │
+│                                                │
+│  ┌──────────────┐  ┌──────────────────────┐    │
+│  │    MMKV      │  │    SQLite (可选)       │    │
+│  │  (快速KV)     │  │  (结构化离线数据)       │    │
+│  ├──────────────┤  ├──────────────────────┤    │
+│  │ - JWT Token  │  │ - 离线练习记录         │    │
+│  │ - 用户设置    │  │ - 课程进度缓存         │    │
+│  │ - 设备记忆    │  │ - 曲谱数据缓存         │    │
+│  │ - 简单缓存    │  │ - 待同步队列           │    │
+│  └──────────────┘  └──────────────────────┘    │
+│                                                │
+│  ┌──────────────────────────────────────────┐  │
+│  │            FileSystem                     │  │
+│  ├──────────────────────────────────────────┤  │
+│  │ - SoundFont 音色文件 (.sf2)               │  │
+│  │ - 课程媒体资源 (图片/动画)                  │  │
+│  └──────────────────────────────────────────┘  │
+└────────────────────────────────────────────────┘
+```
+
+### 11.3 离线同步策略
+
+```
+联网后自动同步流程:
+
+1. App 进入前台 / 网络恢复
+        │
+        ▼
+2. 检查待同步队列 (synced = false)
+        │
+        ▼
+3. 按时间顺序批量上传 (POST /v1/practice/sync)
+        │
+        ├── 成功 → 标记 synced = true
+        │
+        └── 冲突 → 乐观策略: 客户端数据优先 (练习记录无冲突风险)
+                   课程进度: 取 best_score 最大值
+```
+
+---
+
+## 12. 容错与错误处理
+
+### 12.1 MIDI 设备异常
+
+| 异常 | 处理 | 用户体验 |
+|------|------|---------|
+| USB 设备拔出 | 自动暂停游戏 + 弹出重连提示 | "设备已断开，重新插入后继续" |
+| BLE 信号丢失 | 3 秒内自动重连，超时暂停 | 先静默重试，失败后暂停 |
+| MIDI 数据异常 | 丢弃无效包，不中断游戏 | 用户无感知 |
+| 设备切换 | 暂停游戏，确认新设备后继续 | 弹出设备选择 |
+
+### 12.2 网络异常
+
+| 场景 | 处理 |
+|------|------|
+| API 请求超时 | 3 次指数退避重试 (1s → 2s → 4s) |
+| 练习记录上传失败 | 存入离线队列，后台自动重试 |
+| Token 过期 | 自动用 Refresh Token 刷新，失败则引导重新登录 |
+| 课程数据加载失败 | 优先使用本地缓存，提示用户 "使用离线版本" |
+
+### 12.3 游戏崩溃恢复
+
+```
+每 10 秒自动保存游戏状态快照到 MMKV:
+{
+  songId, currentPosition, score, combo, mode, speed,
+  hitNotes: [...noteIds], timestamp
+}
+
+App 重启时检测到未完成的快照:
+→ 提示 "检测到上次未完成的练习，是否继续？"
+→ 继续: 从快照位置恢复
+→ 放弃: 清除快照，回到主页
+```
+
+---
+
+## 13. 测试策略
+
+### 13.1 测试分层
+
+| 层级 | 范围 | 工具 | 覆盖目标 |
+|------|------|------|---------|
+| **单元测试** | 评分算法、音符匹配、时间计算 | Jest | 核心引擎逻辑 100% |
+| **组件测试** | UI 组件渲染、交互 | React Native Testing Library | 关键交互路径 |
+| **Native 测试** | CoreMIDI 模块、音频引擎 | XCTest (Swift) | MIDI 解析、音频播放 |
+| **后端单元测试** | Service 层业务逻辑 | Go testing + testify | 业务逻辑 80%+ |
+| **API 集成测试** | HTTP 端点 | Go testing + httptest | 所有端点覆盖 |
+| **E2E 测试** | 核心用户流程 | Detox | 注册→连接→练习→评分 |
+
+### 13.2 MIDI 输入模拟
+
+```typescript
+// test/helpers/mockMIDI.ts
+
+class MockMIDIDevice {
+  private listeners: Map<string, Function[]> = new Map();
+
+  simulateNoteOn(note: number, velocity: number, delayMs: number = 0) {
+    setTimeout(() => {
+      this.emit('onNoteEvent', {
+        type: 'noteOn',
+        note,
+        velocity,
+        channel: 0,
+        timestamp: performance.now(),
+      });
+    }, delayMs);
+  }
+
+  simulateSequence(notes: Array<{note: number, time: number, velocity: number}>) {
+    notes.forEach(n => this.simulateNoteOn(n.note, n.velocity, n.time));
+  }
+}
+```
+
+### 13.3 关键测试场景
+
+- 评分边界: 恰好 50ms/100ms/200ms 偏差的判定结果
+- Combo 计算: 连击倍率切换点 (9→10, 29→30, 49→50, 99→100)
+- 等待模式: 音符暂停→正确输入→继续下落
+- 离线→联网: 离线记录同步后数据一致性
+- MIDI 断连: 游戏中拔出 USB 的状态恢复
+- 并发输入: 和弦（多个音符同时按下）的匹配准确性
+
+---
+
+## 14. 部署与运维
+
+### 14.1 后端部署架构
+
+```
+┌─────────────────────────────────────────────┐
+│                  阿里云 / AWS                 │
+│                                             │
+│  ┌─────────┐     ┌──────────────────────┐   │
+│  │ Nginx   │────→│  Go Server (Docker)  │   │
+│  │ (反代+  │     │  × 2 实例 (最小)       │   │
+│  │  SSL)   │     └──────────┬───────────┘   │
+│  └─────────┘                │               │
+│                    ┌────────┴────────┐       │
+│               ┌────┴────┐    ┌──────┴────┐  │
+│               │PostgreSQL│    │   Redis   │  │
+│               │ (RDS)    │    │ (托管)     │  │
+│               └──────────┘    └───────────┘  │
+│                                             │
+│  ┌──────────────────────────────────────┐   │
+│  │         OSS / S3 (曲谱+音频+CDN)      │   │
+│  └──────────────────────────────────────┘   │
+└─────────────────────────────────────────────┘
+```
+
+### 14.2 CI/CD
+
+```yaml
+# GitHub Actions 流水线
+触发: push to main / PR
+
+Pipeline:
+  ├── Backend:
+  │   ├── go test ./...
+  │   ├── go vet + golangci-lint
+  │   ├── docker build
+  │   └── deploy to staging (PR) / production (main)
+  │
+  └── Mobile:
+      ├── TypeScript type check
+      ├── Jest unit tests
+      ├── EAS Build (Expo)
+      └── TestFlight upload (main only)
+```
+
+### 14.3 监控
+
+| 层级 | 工具 | 监控内容 |
+|------|------|---------|
+| **服务端** | Prometheus + Grafana | API 延迟、错误率、QPS |
+| **服务端日志** | Zap → ELK / 阿里云日志服务 | 结构化日志、错误追踪 |
+| **客户端崩溃** | Sentry (React Native) | JS 异常、Native 崩溃 |
+| **客户端性能** | 自定义埋点 | MIDI 延迟、帧率、渲染耗时 |
+| **业务指标** | 自建 + 阿里云 ARMS | DAU、留存率、课程完成率、付费转化率 |
+
+### 14.4 数据库迁移
+
+使用 `golang-migrate/migrate` 管理数据库版本：
+
+```bash
+# 创建迁移
+migrate create -ext sql -dir migrations -seq create_subscriptions
+
+# 执行迁移
+migrate -database "postgres://..." -path migrations up
+
+# 回滚
+migrate -database "postgres://..." -path migrations down 1
+```
+
+---
+
+## 15. 国际化设计
+
+### 15.1 多语言策略
+
+MVP 阶段以中文为主，但在架构层面预留国际化能力：
+
+| 层级 | 方案 |
+|------|------|
+| **前端 UI** | `i18next` + `react-i18next`，所有文案走 key-value |
+| **课程内容** | 数据库 `locale` 字段区分语言版本，同一课程可有多语言变体 |
+| **曲目元数据** | `Song.locale` 标记语言，搜索/筛选时优先展示用户语言的曲目 |
+| **后端 API** | `Accept-Language` header 控制返回语言，错误信息多语言 |
+
+### 15.2 支持语言规划
+
+| 阶段 | 语言 |
+|------|------|
+| Phase 1 | 简体中文 (zh-CN) |
+| Phase 2 | 英语 (en) |
+| Phase 3 | 日语 (ja)、繁体中文 (zh-TW) |
+
+### 15.3 前端示例
+
+```typescript
+// i18n/zh-CN.json
+{
+  "game.perfect": "完美!",
+  "game.great": "很好!",
+  "game.miss": "错过",
+  "game.combo": "{{count}}连击",
+  "course.level1": "钢琴启蒙",
+  "midi.connect": "连接设备",
+  "midi.scanning": "正在搜索蓝牙设备..."
+}
+```
+
+---
+
+## 16. 项目结构
 
 ```
 easy-piano/
@@ -1125,11 +1684,14 @@ easy-piano/
 │   │   │   ├── gameStore.ts              # 游戏状态
 │   │   │   ├── midiStore.ts              # MIDI 连接状态
 │   │   │   ├── userStore.ts              # 用户信息
-│   │   │   └── courseStore.ts            # 课程进度
+│   │   │   ├── courseStore.ts            # 课程进度
+│   │   │   └── settingsStore.ts          # 用户设置
 │   │   │
 │   │   ├── hooks/
 │   │   │   ├── useMIDI.ts               # MIDI 连接 Hook
 │   │   │   ├── useGameLoop.ts           # 游戏循环 Hook
+│   │   │   ├── useAudio.ts              # 音频引擎 Hook
+│   │   │   ├── useOfflineSync.ts        # 离线同步 Hook
 │   │   │   └── useAuth.ts
 │   │   │
 │   │   ├── api/
@@ -1137,7 +1699,17 @@ easy-piano/
 │   │   │   ├── auth.ts
 │   │   │   ├── courses.ts
 │   │   │   ├── songs.ts
-│   │   │   └── practice.ts
+│   │   │   ├── practice.ts
+│   │   │   └── subscription.ts          # 订阅 & 购买
+│   │   │
+│   │   ├── i18n/
+│   │   │   ├── index.ts                 # i18next 配置
+│   │   │   ├── zh-CN.json
+│   │   │   └── en.json
+│   │   │
+│   │   ├── offline/
+│   │   │   ├── syncQueue.ts             # 离线同步队列
+│   │   │   └── cacheManager.ts          # 本地缓存管理
 │   │   │
 │   │   ├── utils/
 │   │   │   ├── noteUtils.ts             # 音符名称/位置映射
@@ -1153,11 +1725,15 @@ easy-piano/
 │   │   └── Modules/
 │   │       ├── MIDIManager.swift         # CoreMIDI 管理
 │   │       ├── MIDIManager.m             # RN Bridge
-│   │       └── BLEMIDIManager.swift      # 蓝牙 MIDI
+│   │       ├── BLEMIDIManager.swift      # 蓝牙 MIDI
+│   │       ├── AudioEngine.swift         # 音频引擎 (AVAudioEngine)
+│   │       └── AudioEngine.m             # RN Bridge
 │   │
 │   ├── assets/
 │   │   ├── images/
-│   │   ├── sounds/                       # 音效
+│   │   ├── sounds/                       # 音效 (Perfect/Great/Miss)
+│   │   ├── soundfonts/                   # SoundFont 钢琴音色
+│   │   │   └── Piano-Basic.sf2
 │   │   └── fonts/
 │   │
 │   ├── app.json
@@ -1180,6 +1756,7 @@ easy-piano/
 │   │   │   ├── lesson.go
 │   │   │   ├── song.go
 │   │   │   ├── practice.go
+│   │   │   ├── subscription.go
 │   │   │   └── leaderboard.go
 │   │   │
 │   │   ├── service/                      # 业务逻辑层
@@ -1189,6 +1766,8 @@ easy-piano/
 │   │   │   ├── song_service.go
 │   │   │   ├── practice_service.go
 │   │   │   ├── achievement_service.go
+│   │   │   ├── subscription_service.go
+│   │   │   ├── anticheat_service.go      # 防作弊校验
 │   │   │   └── leaderboard_service.go
 │   │   │
 │   │   ├── repository/                   # 数据访问层
@@ -1196,6 +1775,7 @@ easy-piano/
 │   │   │   ├── course_repo.go
 │   │   │   ├── song_repo.go
 │   │   │   ├── practice_repo.go
+│   │   │   ├── subscription_repo.go
 │   │   │   └── achievement_repo.go
 │   │   │
 │   │   ├── model/                        # 数据模型
@@ -1204,12 +1784,15 @@ easy-piano/
 │   │   │   ├── lesson.go
 │   │   │   ├── song.go
 │   │   │   ├── practice_log.go
+│   │   │   ├── subscription.go
+│   │   │   ├── user_settings.go
 │   │   │   └── achievement.go
 │   │   │
 │   │   ├── middleware/
 │   │   │   ├── auth.go                   # JWT 认证
 │   │   │   ├── cors.go
-│   │   │   └── ratelimit.go
+│   │   │   ├── ratelimit.go              # 滑动窗口限流
+│   │   │   └── subscription.go           # 订阅权限校验
 │   │   │
 │   │   └── router/
 │   │       └── router.go                 # 路由注册
@@ -1225,7 +1808,10 @@ easy-piano/
 │   │   ├── 002_create_courses.sql
 │   │   ├── 003_create_songs.sql
 │   │   ├── 004_create_practice_logs.sql
-│   │   └── 005_create_achievements.sql
+│   │   ├── 005_create_achievements.sql
+│   │   ├── 006_create_subscriptions.sql
+│   │   ├── 007_create_song_purchases.sql
+│   │   └── 008_create_user_settings.sql
 │   │
 │   ├── go.mod
 │   ├── go.sum
@@ -1244,66 +1830,97 @@ easy-piano/
 
 ---
 
-## 11. 实施路线图
+## 17. 实施路线图
 
-### Phase 1: MVP (4-6周)
+### Phase 1: MVP (6-8周)
 
 ```
 Week 1-2: 项目搭建 + MIDI 连接
-├── Expo 项目初始化 + 基础导航
-├── Go 后端项目初始化 + 数据库
+├── Expo 项目初始化 + 基础导航 + i18n 框架
+├── Go 后端项目初始化 + 数据库 + golang-migrate
 ├── CoreMIDI Native Module (USB)
 ├── BLE-MIDI 扫描与连接
+├── 音频引擎 Native Module (AVAudioEngine + SoundFont)
 └── MIDI 连接测试页面
 
 Week 3-4: 游戏核心
 ├── 虚拟键盘组件 (Skia)
-├── 下落音符渲染引擎
-├── 游戏主循环 + 音符调度
+├── 下落音符渲染引擎 (imperative API 优化)
+├── 游戏主循环 + 音符调度 (绝对时间同步)
 ├── MIDI 输入匹配 + 评分系统
+├── 音频回声 (Native 层直连)
+├── 延迟监测机制
 └── 基础游戏 UI (分数/连击/进度)
 
 Week 5-6: 课程 + 用户
-├── 后端课程/曲目 API
+├── 后端课程/曲目 API + 输入校验
 ├── 用户注册登录 (JWT + Apple ID)
 ├── 课程浏览页面
-├── 练习记录上传
+├── 练习记录上传 + 防作弊校验
+├── Rate limiting 中间件
+└── iPadOS 适配 (大屏布局)
+
+Week 7-8: 离线 + 联调
+├── 本地缓存管理 (MMKV + 曲谱缓存)
+├── 离线练习 + 同步队列
+├── 游戏崩溃恢复机制
+├── Sentry 客户端监控接入
+├── 核心引擎单元测试
 └── MVP 联调测试
 ```
 
-### Phase 2: 游戏化增强 (3-4周)
+### Phase 2: 游戏化增强 + 商业化 (4-5周)
 
 ```
-Week 7-8: 游戏体验优化
+Week 9-10: 游戏体验优化
 ├── 等待模式 / 自由速度模式
 ├── 分手练习 / 循环练习
+├── 节拍器功能
 ├── 命中特效动画
-├── 音效反馈
+├── 音效反馈 (Perfect/Great/Miss)
+├── 多音色支持 (音色下载管理)
 └── 结算页面 (星级/统计)
 
-Week 9-10: 激励系统
+Week 11-12: 激励 + 商业化
 ├── 经验值 + 等级系统
 ├── 成就系统 (后端+前端)
 ├── 每日打卡 + 连续天数
 ├── 个人主页 + 练习统计
-└── 曲库浏览 + 难度筛选
+├── 曲库浏览 + 难度筛选
+├── 订阅系统 (Apple IAP 接入)
+├── 内容权限控制中间件
+└── 用户设置页面
+
+Week 13: 家长 & 儿童功能
+├── 家长控制功能
+├── 儿童账号绑定
+└── 练习时长限制
 ```
 
-### Phase 3: 社交 & 打磨 (3-4周)
+### Phase 3: 社交 & 上线 (4-5周)
 
 ```
-Week 11-12: 社交功能
-├── 单曲排行榜
+Week 14-15: 社交功能
+├── 单曲排行榜 (防作弊审核)
 ├── 周排行榜
 ├── 好友系统
 └── 分享功能
 
-Week 13-14: 上线准备
-├── 性能优化 (渲染/网络)
+Week 16-17: 上线准备
+├── 性能优化 (Skia 渲染/网络/延迟)
 ├── UI 打磨 + 动画细节
 ├── 新手引导流程
+├── E2E 测试 (Detox)
+├── CI/CD 流水线 (GitHub Actions)
+├── 服务端部署 (Docker + Nginx)
+├── 监控体系搭建 (Prometheus + Grafana)
 ├── TestFlight 测试
 └── App Store 审核提交
+
+Week 18+: Phase 3.5 国际化
+├── 英语版本翻译
+├── 英文曲库补充
+└── 海外市场上架准备
 ```
 
 ---
