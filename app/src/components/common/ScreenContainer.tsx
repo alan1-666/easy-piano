@@ -7,21 +7,27 @@ interface ScreenContainerProps {
   children: React.ReactNode;
   scrollable?: boolean;
   style?: StyleProp<ViewStyle>;
+  padded?: boolean;
 }
 
 export default function ScreenContainer({
   children,
   scrollable = false,
   style,
+  padded = true,
 }: ScreenContainerProps) {
   const insets = useSafeAreaInsets();
+  const horizontalPadding = padded ? Spacing.lg : 0;
 
   if (scrollable) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, style]}
+          contentContainerStyle={[
+            { paddingHorizontal: horizontalPadding, paddingBottom: Spacing.xxl },
+            style,
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -35,8 +41,7 @@ export default function ScreenContainer({
     <View
       style={[
         styles.container,
-        styles.content,
-        { paddingTop: insets.top, paddingBottom: insets.bottom },
+        { paddingTop: insets.top, paddingBottom: insets.bottom, paddingHorizontal: horizontalPadding },
         style,
       ]}
     >
@@ -48,15 +53,9 @@ export default function ScreenContainer({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
-  },
-  content: {
-    paddingHorizontal: Spacing.base,
+    backgroundColor: Colors.bgPrimary,
   },
   scrollView: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.base,
   },
 });

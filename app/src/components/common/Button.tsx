@@ -7,7 +7,12 @@ import {
   ViewStyle,
   StyleProp,
 } from 'react-native';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../theme';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost';
 
@@ -20,6 +25,8 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
 export default function Button({
   title,
   onPress,
@@ -29,24 +36,40 @@ export default function Button({
   style,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+  };
 
   return (
-    <TouchableOpacity
+    <AnimatedTouchable
       style={[
         styles.base,
         variant === 'primary' && styles.primary,
         variant === 'secondary' && styles.secondary,
         variant === 'ghost' && styles.ghost,
         isDisabled && styles.disabled,
+        animatedStyle,
         style,
       ]}
       onPress={onPress}
-      activeOpacity={0.7}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={0.85}
       disabled={isDisabled}
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'primary' ? Colors.background : Colors.accent}
+          color={variant === 'primary' ? Colors.bgPrimary : Colors.accent}
           size="small"
         />
       ) : (
@@ -61,14 +84,14 @@ export default function Button({
           {title}
         </Text>
       )}
-    </TouchableOpacity>
+    </AnimatedTouchable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    height: 48,
-    borderRadius: BorderRadius.md,
+    height: 50,
+    borderRadius: BorderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
@@ -79,27 +102,26 @@ const styles = StyleSheet.create({
   secondary: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: Colors.accent,
+    borderColor: Colors.borderLight,
   },
   ghost: {
     backgroundColor: 'transparent',
   },
   disabled: {
-    opacity: 0.3,
+    opacity: 0.35,
   },
   text: {
-    fontSize: FontSize.h4,
-    fontWeight: '600',
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
   },
   primaryText: {
-    color: Colors.background,
+    color: Colors.bgPrimary,
   },
   secondaryText: {
-    color: Colors.accent,
+    color: Colors.textPrimary,
   },
   ghostText: {
     color: Colors.textSecondary,
-    fontSize: FontSize.body,
-    fontWeight: '400',
+    fontWeight: FontWeight.regular,
   },
 });

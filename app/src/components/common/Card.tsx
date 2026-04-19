@@ -6,7 +6,12 @@ import {
   ViewStyle,
   StyleProp,
 } from 'react-native';
-import { Colors, Spacing, BorderRadius, Shadows } from '../../theme';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { Colors, Spacing, BorderRadius } from '../../theme';
 
 interface CardProps {
   children: React.ReactNode;
@@ -14,16 +19,34 @@ interface CardProps {
   onPress?: () => void;
 }
 
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
 export default function Card({ children, style, onPress }: CardProps) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+  };
+
   if (onPress) {
     return (
-      <TouchableOpacity
-        style={[styles.card, style]}
+      <AnimatedTouchable
+        style={[styles.card, animatedStyle, style]}
         onPress={onPress}
-        activeOpacity={0.7}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.85}
       >
         {children}
-      </TouchableOpacity>
+      </AnimatedTouchable>
     );
   }
 
@@ -32,9 +55,10 @@ export default function Card({ children, style, onPress }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: BorderRadius.xl,
     padding: Spacing.base,
-    ...Shadows.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
 });

@@ -1,23 +1,34 @@
 export const Colors = {
-  background: '#1A1A2E',
-  surface: '#16213E',
-  surfaceLight: '#0F3460',
-  accent: '#FFD700',
-  accentGradientEnd: '#FFA500',
-  white: '#FFFFFF',
-  textSecondary: '#A0A0B0',
-  textDisabled: '#555570',
+  bgPrimary: '#0D0D14',
+  bgSecondary: '#161622',
+  bgTertiary: '#1E1E2E',
+  bgElevated: '#252536',
 
-  leftHand: '#4A90D9',
-  rightHand: '#50C878',
-  perfect: '#FFD700',
-  great: '#4A90D9',
-  good: '#50C878',
-  miss: '#E74C3C',
+  textPrimary: '#F5F5F7',
+  textSecondary: '#8E8E9A',
+  textTertiary: '#4A4A58',
 
-  success: '#2ECC71',
-  warning: '#F39C12',
-  error: '#E74C3C',
+  accent: '#4FC3F7',
+  accentHover: '#81D4FA',
+  success: '#66BB6A',
+  warning: '#FFB74D',
+  error: '#EF5350',
+
+  leftHand: '#5C9CE6',
+  rightHand: '#5ECE8A',
+  perfect: '#4FC3F7',
+  great: '#5C9CE6',
+  good: '#5ECE8A',
+  miss: '#EF5350',
+
+  border: 'rgba(255,255,255,0.06)',
+  borderLight: 'rgba(255,255,255,0.12)',
+
+  // legacy aliases (game engine uses these)
+  background: '#0D0D14',
+  surface: '#161622',
+  surfaceLight: '#1E1E2E',
+  white: '#F5F5F7',
 };
 
 export const Spacing = {
@@ -31,17 +42,26 @@ export const Spacing = {
 };
 
 export const FontSize = {
-  h1: 28,
-  h2: 22,
-  h3: 18,
-  h4: 16,
+  display: 32,
+  h1: 26,
+  h2: 20,
+  h3: 17,
   body: 15,
   caption: 13,
   small: 11,
-  score: 36,
+  score: 48,
+  stat: 36,
   combo: 32,
   grade: 24,
   keyLabel: 10,
+};
+
+export const FontWeight = {
+  regular: '400' as const,
+  medium: '500' as const,
+  semibold: '600' as const,
+  bold: '700' as const,
+  heavy: '800' as const,
 };
 
 export const BorderRadius = {
@@ -49,15 +69,23 @@ export const BorderRadius = {
   md: 8,
   lg: 12,
   xl: 16,
+  xxl: 20,
   full: 9999,
 };
 
 export const Shadows = {
   card: {
     shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  elevated: {
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
     elevation: 8,
   },
 };

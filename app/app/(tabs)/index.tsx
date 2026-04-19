@@ -5,11 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../src/theme';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Flame, ChevronRight, Play, Wifi, Music } from '../../src/components/Icons';
+import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../src/theme';
 import { ProgressBar } from '../../src/components/common';
 import {
   mockUser,
@@ -19,19 +20,16 @@ import {
   mockDailyGoalMinutes,
   mockWeeklyPractice,
   getGreeting,
-  getDifficultyStars,
   formatDuration,
 } from '../../src/utils/mockData';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const SONG_CARD_WIDTH = 120;
+const SONG_CARD_WIDTH = 140;
 
 export default function HomeScreen() {
   const router = useRouter();
   const quickPlaySongs = mockSongs.slice(0, 5);
   const weekDays = ['一', '二', '三', '四', '五', '六', '日'];
   const todayIndex = new Date().getDay();
-  // Convert: Sunday=0 -> 6, Monday=1 -> 0, etc.
   const todayBarIndex = todayIndex === 0 ? 6 : todayIndex - 1;
   const maxMinutes = Math.max(...mockWeeklyPractice, 1);
   const totalWeekMinutes = mockWeeklyPractice.reduce((a, b) => a + b, 0);
@@ -43,142 +41,154 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Greeting */}
-        <Text style={styles.greeting}>
-          {getGreeting()}，{mockUser.username} 👋
-        </Text>
-        <Text style={styles.streak}>🔥 连续练习 {mockStreak} 天</Text>
-
-        {/* MIDI Status Bar */}
-        <TouchableOpacity
-          style={styles.midiBar}
-          onPress={() => router.push('/midi/connect')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.midiDot} />
-          <Text style={styles.midiText}>未连接设备 | 点击连接</Text>
-          <Text style={styles.midiArrow}>→</Text>
-        </TouchableOpacity>
-
-        {/* Current Course Card */}
-        <TouchableOpacity
-          style={styles.courseCard}
-          onPress={() => router.push('/course/1')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.courseCardInner}>
-            <View style={styles.progressCircle}>
-              <Text style={styles.progressCircleText}>30%</Text>
-            </View>
-            <View style={styles.courseInfo}>
-              <Text style={styles.courseTitle}>Level 1: 钢琴启蒙</Text>
-              <Text style={styles.courseProgress}>3/10 课完成</Text>
-              <View style={styles.courseProgressBarWrapper}>
-                <ProgressBar progress={0.3} height={6} />
-              </View>
-            </View>
+        <Animated.View entering={FadeInDown.duration(400).delay(0)}>
+          <Text style={styles.greeting}>
+            {getGreeting()}，{mockUser.username}
+          </Text>
+          <View style={styles.streakRow}>
+            <Flame size={14} color={Colors.warning} />
+            <Text style={styles.streak}>连续练习 {mockStreak} 天</Text>
           </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.duration(400).delay(50)}>
           <TouchableOpacity
-            style={styles.continueButton}
-            onPress={() => router.push('/course/1')}
+            style={styles.midiBar}
+            onPress={() => router.push('/midi/connect')}
             activeOpacity={0.7}
           >
-            <Text style={styles.continueButtonText}>继续学习 →</Text>
+            <Wifi size={14} color={Colors.textTertiary} />
+            <Text style={styles.midiText}>未连接设备</Text>
+            <ChevronRight size={16} color={Colors.textTertiary} />
           </TouchableOpacity>
-        </TouchableOpacity>
+        </Animated.View>
 
-        {/* Today's Goal */}
-        <View style={styles.goalCard}>
-          <Text style={styles.goalTitle}>🎯 今日练习目标</Text>
-          <Text style={styles.goalText}>
-            已练 {mockTodayPracticeMinutes} 分钟 / 目标{' '}
-            {mockDailyGoalMinutes} 分钟
-          </Text>
-          <ProgressBar
-            progress={mockTodayPracticeMinutes / mockDailyGoalMinutes}
-            height={8}
-          />
-          <Text style={styles.goalPercent}>
-            {Math.round(
-              (mockTodayPracticeMinutes / mockDailyGoalMinutes) * 100
-            )}
-            %
-          </Text>
-        </View>
-
-        {/* Quick Play Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>快速开始</Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/songs')}>
-            <Text style={styles.sectionMore}>查看全部</Text>
-          </TouchableOpacity>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.songListContent}
-          style={styles.songList}
-        >
-          {quickPlaySongs.map((song) => (
-            <TouchableOpacity
-              key={song.id}
-              style={styles.songCard}
-              onPress={() => router.push(`/game/${song.id}`)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.songCover}>
-                <Text style={styles.songCoverEmoji}>🎹</Text>
+        <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+          <TouchableOpacity
+            style={styles.courseCard}
+            onPress={() => router.push('/course/1')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.courseCardInner}>
+              <View style={styles.progressCircle}>
+                <Text style={styles.progressCircleText}>30%</Text>
               </View>
-              <Text style={styles.songTitle} numberOfLines={1}>
-                {song.title}
-              </Text>
-              <Text style={styles.songDifficulty}>
-                {getDifficultyStars(song.difficulty)}
-              </Text>
-              <Text style={styles.songDuration}>
-                {formatDuration(song.duration)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+              <View style={styles.courseInfo}>
+                <Text style={styles.courseLabel}>当前课程</Text>
+                <Text style={styles.courseTitle}>Level 1: 钢琴启蒙</Text>
+                <Text style={styles.courseProgress}>3/10 课完成</Text>
+                <ProgressBar progress={0.3} height={4} />
+              </View>
+            </View>
+            <View style={styles.continueButton}>
+              <Play size={16} color={Colors.bgPrimary} fill={Colors.bgPrimary} />
+              <Text style={styles.continueButtonText}>继续学习</Text>
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
 
-        {/* Weekly Stats */}
-        <View style={styles.weeklyCard}>
-          <View style={styles.weeklyHeader}>
-            <Text style={styles.weeklyTitle}>📊 本周练习</Text>
-            <Text style={styles.weeklyTotal}>
-              本周共 {(totalWeekMinutes / 60).toFixed(1)} 小时
+        <Animated.View entering={FadeInDown.duration(400).delay(150)}>
+          <View style={styles.goalCard}>
+            <View style={styles.goalHeader}>
+              <Text style={styles.goalTitle}>今日目标</Text>
+              <Text style={styles.goalPercent}>
+                {Math.round(
+                  (mockTodayPracticeMinutes / mockDailyGoalMinutes) * 100
+                )}%
+              </Text>
+            </View>
+            <ProgressBar
+              progress={mockTodayPracticeMinutes / mockDailyGoalMinutes}
+              height={4}
+            />
+            <Text style={styles.goalText}>
+              {mockTodayPracticeMinutes} / {mockDailyGoalMinutes} 分钟
             </Text>
           </View>
-          <View style={styles.barsContainer}>
-            {mockWeeklyPractice.map((minutes, index) => (
-              <View key={index} style={styles.barWrapper}>
-                <View style={styles.barTrack}>
-                  <View
-                    style={[
-                      styles.bar,
-                      {
-                        height: `${Math.max((minutes / maxMinutes) * 100, 4)}%`,
-                        backgroundColor:
-                          index === todayBarIndex
-                            ? Colors.accent
-                            : Colors.leftHand,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.barLabel,
-                    index === todayBarIndex && styles.barLabelActive,
-                  ]}
-                >
-                  {weekDays[index]}
-                </Text>
-              </View>
-            ))}
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.duration(400).delay(200)}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>快速开始</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/songs')}
+              hitSlop={8}
+            >
+              <Text style={styles.sectionMore}>查看全部</Text>
+            </TouchableOpacity>
           </View>
-        </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.songListContent}
+            style={styles.songList}
+          >
+            {quickPlaySongs.map((song) => (
+              <TouchableOpacity
+                key={song.id}
+                style={styles.songCard}
+                onPress={() => router.push(`/game/${song.id}`)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.songCover}>
+                  <Music size={24} color={Colors.textTertiary} />
+                </View>
+                <View style={styles.songCardBody}>
+                  <Text style={styles.songTitle} numberOfLines={1}>
+                    {song.title}
+                  </Text>
+                  <Text style={styles.songArtist} numberOfLines={1}>
+                    {song.artist}
+                  </Text>
+                  <Text style={styles.songDuration}>
+                    {formatDuration(song.duration)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.duration(400).delay(250)}>
+          <View style={styles.weeklyCard}>
+            <View style={styles.weeklyHeader}>
+              <Text style={styles.weeklyTitle}>本周练习</Text>
+              <Text style={styles.weeklyTotal}>
+                {(totalWeekMinutes / 60).toFixed(1)} 小时
+              </Text>
+            </View>
+            <View style={styles.barsContainer}>
+              {mockWeeklyPractice.map((minutes, index) => {
+                const isToday = index === todayBarIndex;
+                return (
+                  <View key={index} style={styles.barWrapper}>
+                    <View style={styles.barTrack}>
+                      <View
+                        style={[
+                          styles.bar,
+                          {
+                            height: `${Math.max((minutes / maxMinutes) * 100, 4)}%`,
+                            backgroundColor: isToday
+                              ? Colors.accent
+                              : Colors.bgElevated,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.barLabel,
+                        isToday && styles.barLabelActive,
+                      ]}
+                    >
+                      {weekDays[index]}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -187,69 +197,67 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bgPrimary,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.base,
-    paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   greeting: {
-    fontSize: FontSize.h2,
-    fontWeight: '600',
-    color: Colors.white,
-    marginTop: Spacing.base,
+    fontSize: FontSize.h1,
+    fontWeight: FontWeight.bold,
+    color: Colors.textPrimary,
+    marginTop: Spacing.lg,
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.lg,
   },
   streak: {
     fontSize: FontSize.caption,
-    color: Colors.accent,
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.base,
+    color: Colors.textSecondary,
   },
   midiBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    height: 36,
-    marginBottom: Spacing.base,
-  },
-  midiDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.textDisabled,
-    marginRight: Spacing.sm,
+    gap: Spacing.sm,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.base,
+    height: 40,
+    marginBottom: Spacing.lg,
   },
   midiText: {
     flex: 1,
     fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-  },
-  midiArrow: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    color: Colors.textTertiary,
   },
   courseCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
     padding: Spacing.base,
-    marginBottom: Spacing.base,
+    marginBottom: Spacing.lg,
   },
   courseCardInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.base,
   },
   progressCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: Colors.accent,
     justifyContent: 'center',
     alignItems: 'center',
@@ -257,136 +265,145 @@ const styles = StyleSheet.create({
   },
   progressCircleText: {
     fontSize: FontSize.caption,
-    fontWeight: '700',
+    fontWeight: FontWeight.bold,
     color: Colors.accent,
   },
   courseInfo: {
     flex: 1,
+    gap: Spacing.xs,
+  },
+  courseLabel: {
+    fontSize: FontSize.small,
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   courseTitle: {
-    fontSize: FontSize.h4,
-    fontWeight: '600',
-    color: Colors.white,
-    marginBottom: Spacing.xs,
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
   },
   courseProgress: {
     fontSize: FontSize.caption,
     color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-  },
-  courseProgressBarWrapper: {
-    width: '100%',
+    marginBottom: Spacing.xs,
   },
   continueButton: {
-    backgroundColor: Colors.accent,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.sm,
+    flexDirection: 'row',
     alignItems: 'center',
-    height: 36,
     justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.accent,
+    borderRadius: BorderRadius.lg,
+    height: 44,
   },
   continueButtonText: {
     fontSize: FontSize.body,
-    fontWeight: '600',
-    color: Colors.background,
+    fontWeight: FontWeight.semibold,
+    color: Colors.bgPrimary,
   },
   goalCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
     padding: Spacing.base,
-    marginBottom: Spacing.base,
+    marginBottom: Spacing.lg,
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
   },
   goalTitle: {
     fontSize: FontSize.body,
-    fontWeight: '600',
-    color: Colors.white,
-    marginBottom: Spacing.sm,
-  },
-  goalText: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
   },
   goalPercent: {
     fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    textAlign: 'right',
-    marginTop: Spacing.xs,
+    fontWeight: FontWeight.semibold,
+    color: Colors.accent,
+  },
+  goalText: {
+    fontSize: FontSize.caption,
+    color: Colors.textTertiary,
+    marginTop: Spacing.sm,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.base,
   },
   sectionTitle: {
-    fontSize: FontSize.h4,
-    fontWeight: '600',
-    color: Colors.white,
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
   },
   sectionMore: {
     fontSize: FontSize.caption,
     color: Colors.textSecondary,
   },
   songList: {
-    marginHorizontal: -Spacing.base,
-    marginBottom: Spacing.base,
+    marginHorizontal: -Spacing.lg,
+    marginBottom: Spacing.lg,
   },
   songListContent: {
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
   },
   songCard: {
     width: SONG_CARD_WIDTH,
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
     overflow: 'hidden',
   },
   songCover: {
     width: SONG_CARD_WIDTH,
-    height: 80,
-    backgroundColor: Colors.surfaceLight,
+    height: 90,
+    backgroundColor: Colors.bgTertiary,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  songCoverEmoji: {
-    fontSize: 28,
+  songCardBody: {
+    padding: Spacing.md,
+    gap: 2,
   },
   songTitle: {
-    fontSize: FontSize.h4,
-    fontWeight: '600',
-    color: Colors.white,
-    paddingHorizontal: Spacing.sm,
-    paddingTop: Spacing.sm,
+    fontSize: FontSize.caption,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
   },
-  songDifficulty: {
+  songArtist: {
     fontSize: FontSize.small,
-    color: Colors.accent,
-    paddingHorizontal: Spacing.sm,
-    marginTop: Spacing.xs,
+    color: Colors.textTertiary,
   },
   songDuration: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    paddingHorizontal: Spacing.sm,
-    paddingBottom: Spacing.sm,
+    fontSize: FontSize.small,
+    color: Colors.textTertiary,
     marginTop: Spacing.xs,
   },
   weeklyCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
     padding: Spacing.base,
   },
   weeklyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.base,
   },
   weeklyTitle: {
     fontSize: FontSize.body,
-    fontWeight: '600',
-    color: Colors.white,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
   },
   weeklyTotal: {
     fontSize: FontSize.caption,
@@ -405,21 +422,22 @@ const styles = StyleSheet.create({
   },
   barTrack: {
     flex: 1,
-    width: 24,
+    width: 20,
+    borderRadius: BorderRadius.sm,
     justifyContent: 'flex-end',
   },
   bar: {
-    width: 24,
+    width: 20,
     borderRadius: BorderRadius.sm,
     minHeight: 3,
   },
   barLabel: {
     fontSize: FontSize.small,
-    color: Colors.textSecondary,
+    color: Colors.textTertiary,
     marginTop: Spacing.xs,
   },
   barLabelActive: {
     color: Colors.accent,
-    fontWeight: '600',
+    fontWeight: FontWeight.semibold,
   },
 });

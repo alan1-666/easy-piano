@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
-import { Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Home, Music, BarChart3, User } from '../../src/components/Icons';
 import { Colors } from '../../src/theme';
 
 export default function TabLayout() {
@@ -8,7 +9,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.accent,
-        tabBarInactiveTintColor: Colors.textDisabled,
+        tabBarInactiveTintColor: Colors.textTertiary,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabBarLabel,
       }}
@@ -17,8 +18,8 @@ export default function TabLayout() {
         name="index"
         options={{
           title: '首页',
-          tabBarIcon: ({ color }) => (
-            <Text style={[styles.icon, { color }]}>🏠</Text>
+          tabBarIcon: ({ color, size }) => (
+            <Home size={22} color={color} strokeWidth={1.8} />
           ),
         }}
       />
@@ -26,8 +27,8 @@ export default function TabLayout() {
         name="songs"
         options={{
           title: '曲库',
-          tabBarIcon: ({ color }) => (
-            <Text style={[styles.icon, { color }]}>🎵</Text>
+          tabBarIcon: ({ color, size }) => (
+            <Music size={22} color={color} strokeWidth={1.8} />
           ),
         }}
       />
@@ -35,8 +36,8 @@ export default function TabLayout() {
         name="practice"
         options={{
           title: '练习',
-          tabBarIcon: ({ color }) => (
-            <Text style={[styles.icon, { color }]}>📊</Text>
+          tabBarIcon: ({ color, size }) => (
+            <BarChart3 size={22} color={color} strokeWidth={1.8} />
           ),
         }}
       />
@@ -44,8 +45,8 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: '我的',
-          tabBarIcon: ({ color }) => (
-            <Text style={[styles.icon, { color }]}>👤</Text>
+          tabBarIcon: ({ color, size }) => (
+            <User size={22} color={color} strokeWidth={1.8} />
           ),
         }}
       />
@@ -55,15 +56,14 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.background,
-    borderTopColor: Colors.surface,
+    backgroundColor: Colors.bgSecondary,
+    borderTopColor: Colors.border,
     borderTopWidth: 1,
+    height: 56,
+    paddingBottom: 4,
   },
   tabBarLabel: {
     fontSize: 11,
     fontWeight: '500',
-  },
-  icon: {
-    fontSize: 20,
   },
 });

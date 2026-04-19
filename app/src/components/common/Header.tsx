@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, FontSize } from '../../theme';
+import { ChevronLeft } from '../Icons';
+import { Colors, Spacing, FontSize, FontWeight } from '../../theme';
 
 interface HeaderProps {
   title: string;
@@ -21,7 +22,7 @@ export default function Header({ title, showBack = false, rightAction }: HeaderP
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <Text style={styles.backIcon}>{'<'}</Text>
+            <ChevronLeft size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
         )}
       </View>
@@ -35,10 +36,10 @@ export default function Header({ title, showBack = false, rightAction }: HeaderP
 
 const styles = StyleSheet.create({
   container: {
-    height: 44,
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bgPrimary,
     paddingHorizontal: Spacing.base,
   },
   left: {
@@ -52,19 +53,14 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     textAlign: 'center',
-    color: Colors.white,
-    fontSize: FontSize.h4,
-    fontWeight: '600',
+    color: Colors.textPrimary,
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.semibold,
   },
   backButton: {
     width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  backIcon: {
-    color: Colors.white,
-    fontSize: FontSize.h3,
-    fontWeight: '600',
   },
 });

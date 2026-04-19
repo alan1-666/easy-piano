@@ -12,6 +12,7 @@ i18n.use(initReactI18next).init({
   resources,
   lng: 'zh-CN',
   fallbackLng: 'zh-CN',
+  compatibilityJSON: 'v3',
   interpolation: {
     escapeValue: false,
   },

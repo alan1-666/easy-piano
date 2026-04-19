@@ -1,0 +1,8 @@
+{
+  "name": "easy-piano-midi",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "types": "index.ts",
+  "description": "Native MIDI bridge for EasyPiano local Expo module"
+}

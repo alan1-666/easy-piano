@@ -58,7 +58,7 @@ export default function CourseDetailScreen() {
         return Colors.accent;
       case 'locked':
       default:
-        return Colors.textDisabled;
+        return Colors.textTertiary;
     }
   }
 
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   sectionTitle: {
-    fontSize: FontSize.h4,
+    fontSize: FontSize.body,
     fontWeight: '600',
     color: Colors.white,
     marginBottom: Spacing.md,
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   lessonTitleLocked: {
-    color: Colors.textDisabled,
+    color: Colors.textTertiary,
   },
   lessonMeta: {
     flexDirection: 'row',
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   },
   lessonLockedText: {
     fontSize: FontSize.small,
-    color: Colors.textDisabled,
+    color: Colors.textTertiary,
   },
   lessonUnlockedText: {
     fontSize: FontSize.small,

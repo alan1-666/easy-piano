@@ -1,6 +1,8 @@
 # EasyPiano - 游戏化钢琴学习 App 设计文档
 
-> 版本: v0.2.0 | 更新日期: 2026-04-18
+> 版本: v0.2.1 | 更新日期: 2026-04-19
+
+> 当前说明: 这份文档保留长期设计方向，同时会标注已落地原型的关键状态。当前前端原型已经具备首页、曲库、MIDI 连接页、游戏页和结果页；游戏页现阶段使用 React Native 视图实现下落音符与键盘交互，原生 USB MIDI / BLE MIDI 接入仍在规划实施中。电钢琴接入的最新结论见 [电钢琴接入方案](./architecture/piano-input-connectivity.md)。
 
 ---
 
@@ -113,10 +115,10 @@
 | 层级 | 技术 | 版本 | 理由 |
 |------|------|------|------|
 | **移动端框架** | React Native + Expo | SDK 52+ | 跨平台，生态成熟，后续 Android 低成本 |
-| **游戏渲染** | @shopify/react-native-skia | 1.x | GPU 加速 2D 渲染，60fps 下落音符动画 |
+| **游戏渲染** | React Native Views（当前）/ Skia（预研） | — | 当前原型优先保证稳定可运行，后续如需更强渲染性能再升级 |
 | **状态管理** | Zustand | 5.x | 轻量、TypeScript 友好、性能好 |
 | **导航** | Expo Router | 4.x | 基于文件系统路由，开发体验好 |
-| **MIDI 连接** | CoreMIDI (Native Module) | — | iOS 原生 MIDI 框架，延迟最低 |
+| **MIDI 连接** | CoreMIDI / Android MIDI API (Native Module) | — | 主方案为 USB MIDI，BLE MIDI 为第二接入方式 |
 | **音频引擎** | AUGraph + SoundFont (Native Module) | — | 虚拟键盘音色、示范播放、节拍器，低延迟 |
 | **后端框架** | Go + Gin | 1.22+ | 高性能、并发好，用户指定 |
 | **ORM** | GORM | 2.x | Go 生态最成熟的 ORM |
@@ -995,6 +997,15 @@ SubscriptionCheck 逻辑:
 ---
 
 ## 8. MIDI 技术方案
+
+### 8.0 2026-04-19 决策更新
+
+- 输入主链路确定为 `USB MIDI`
+- `BLE MIDI` 作为第二接入方式
+- `麦克风识别` 只作为补充模式，不进入主判定链路
+- `HDMI` 仅用于投屏或音频输出，不作为键盘输入方案
+
+详细对比、实施顺序和官方参考资料，统一见 [电钢琴接入方案](./architecture/piano-input-connectivity.md)。
 
 ### 8.1 CoreMIDI Native Module (Swift)
 

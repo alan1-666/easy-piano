@@ -10,7 +10,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../src/theme';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Search, Lock, Music, Clock } from '../../src/components/Icons';
+import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../src/theme';
 import {
   mockSongs,
   getDifficultyStars,
@@ -18,7 +20,7 @@ import {
 } from '../../src/utils/mockData';
 import type { Song } from '../../src/types/song';
 
-const DIFFICULTY_FILTERS = ['全部', '★', '★★', '★★★', '★★★★', '★★★★★'];
+const DIFFICULTY_LABELS = ['全部', '入门', '初级', '中级', '进阶', '高级'];
 
 export default function SongsScreen() {
   const router = useRouter();
@@ -41,51 +43,55 @@ export default function SongsScreen() {
     return songs;
   }, [searchQuery, selectedDifficulty]);
 
-  const renderSongItem = ({ item }: { item: Song }) => (
-    <TouchableOpacity
-      style={styles.songCard}
-      onPress={() => router.push(`/game/${item.id}`)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.songCover}>
-        <Text style={styles.songCoverEmoji}>🎹</Text>
-      </View>
-      <View style={styles.songInfo}>
-        <Text style={styles.songTitle} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text style={styles.songArtist} numberOfLines={1}>
-          {item.artist}
-        </Text>
-        <View style={styles.songMeta}>
-          <Text style={styles.songDifficulty}>
-            {getDifficultyStars(item.difficulty)}
-          </Text>
-          <Text style={styles.songDuration}>
-            {formatDuration(item.duration)}
-          </Text>
-        </View>
-      </View>
-      <View
-        style={[
-          styles.badge,
-          item.isFree ? styles.badgeFree : styles.badgeLocked,
-        ]}
+  const renderSongItem = ({ item, index }: { item: Song; index: number }) => (
+    <Animated.View entering={FadeInDown.duration(300).delay(index * 30)}>
+      <TouchableOpacity
+        style={styles.songCard}
+        onPress={() => router.push(`/game/${item.id}`)}
+        activeOpacity={0.85}
       >
-        <Text
-          style={[
-            styles.badgeText,
-            item.isFree ? styles.badgeFreeText : styles.badgeLockedText,
-          ]}
-        >
-          {item.isFree ? '免费' : '🔒 订阅'}
-        </Text>
-      </View>
-    </TouchableOpacity>
+        <View style={styles.songCover}>
+          <Music size={20} color={Colors.textTertiary} />
+        </View>
+        <View style={styles.songInfo}>
+          <Text style={styles.songTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={styles.songArtist} numberOfLines={1}>
+            {item.artist}
+          </Text>
+          <View style={styles.songMeta}>
+            <View style={styles.difficultyDots}>
+              {[1, 2, 3, 4, 5].map((level) => (
+                <View
+                  key={level}
+                  style={[
+                    styles.difficultyDot,
+                    level <= item.difficulty
+                      ? styles.difficultyDotActive
+                      : styles.difficultyDotInactive,
+                  ]}
+                />
+              ))}
+            </View>
+            <Clock size={12} color={Colors.textTertiary} />
+            <Text style={styles.songDuration}>
+              {formatDuration(item.duration)}
+            </Text>
+          </View>
+        </View>
+        {!item.isFree && (
+          <View style={styles.lockBadge}>
+            <Lock size={12} color={Colors.textTertiary} />
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
+      <Music size={40} color={Colors.textTertiary} />
       <Text style={styles.emptyText}>没有找到曲目</Text>
     </View>
   );
@@ -94,28 +100,26 @@ export default function SongsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <Text style={styles.pageTitle}>曲库</Text>
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Search size={18} color={Colors.textTertiary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="搜索曲目名称或艺术家"
-            placeholderTextColor={Colors.textDisabled}
+            placeholder="搜索曲目或艺术家"
+            placeholderTextColor={Colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
       </View>
 
-      {/* Filter Chips */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterContainer}
         style={styles.filterScroll}
       >
-        {DIFFICULTY_FILTERS.map((filter, index) => (
+        {DIFFICULTY_LABELS.map((label, index) => (
           <TouchableOpacity
             key={index}
             style={[
@@ -131,13 +135,12 @@ export default function SongsScreen() {
                 selectedDifficulty === index && styles.filterChipTextSelected,
               ]}
             >
-              {filter}
+              {label}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Song List */}
       <FlatList
         data={filteredSongs}
         keyExtractor={(item) => item.id.toString()}
@@ -154,67 +157,69 @@ export default function SongsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.bgPrimary,
   },
   pageTitle: {
-    fontSize: FontSize.h1,
-    fontWeight: '700',
-    color: Colors.white,
-    paddingHorizontal: Spacing.base,
-    marginTop: Spacing.base,
-    marginBottom: Spacing.md,
+    fontSize: FontSize.display,
+    fontWeight: FontWeight.bold,
+    color: Colors.textPrimary,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.base,
   },
   searchContainer: {
-    paddingHorizontal: Spacing.base,
-    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.base,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.base,
     height: 44,
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: Spacing.sm,
   },
   searchInput: {
     flex: 1,
     fontSize: FontSize.body,
-    color: Colors.white,
+    color: Colors.textPrimary,
     padding: 0,
   },
   filterScroll: {
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.base,
   },
   filterContainer: {
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
   },
   filterChip: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: BorderRadius.xl,
-    height: 32,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    height: 34,
     justifyContent: 'center',
   },
   filterChipSelected: {
     backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
   },
   filterChipText: {
     fontSize: FontSize.caption,
     color: Colors.textSecondary,
   },
   filterChipTextSelected: {
-    color: Colors.background,
-    fontWeight: '600',
+    color: Colors.bgPrimary,
+    fontWeight: FontWeight.semibold,
   },
   listContent: {
-    paddingHorizontal: Spacing.base,
-    paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   separator: {
     height: Spacing.sm,
@@ -222,76 +227,74 @@ const styles = StyleSheet.create({
   songCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
     padding: Spacing.md,
   },
   songCover: {
-    width: 60,
-    height: 60,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.surfaceLight,
+    width: 52,
+    height: 52,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.bgTertiary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Spacing.md,
   },
-  songCoverEmoji: {
-    fontSize: 24,
-  },
   songInfo: {
     flex: 1,
+    gap: 2,
   },
   songTitle: {
-    fontSize: FontSize.h4,
-    fontWeight: '600',
-    color: Colors.white,
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
   },
   songArtist: {
     fontSize: FontSize.caption,
     color: Colors.textSecondary,
-    marginTop: 2,
   },
   songMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.xs,
     gap: Spacing.sm,
+    marginTop: Spacing.xs,
   },
-  songDifficulty: {
-    fontSize: FontSize.small,
-    color: Colors.accent,
+  difficultyDots: {
+    flexDirection: 'row',
+    gap: 3,
+  },
+  difficultyDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  difficultyDotActive: {
+    backgroundColor: Colors.accent,
+  },
+  difficultyDotInactive: {
+    backgroundColor: Colors.bgElevated,
   },
   songDuration: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-  },
-  badge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-    marginLeft: Spacing.sm,
-  },
-  badgeFree: {
-    backgroundColor: Colors.success,
-  },
-  badgeLocked: {
-    backgroundColor: Colors.textDisabled,
-  },
-  badgeText: {
     fontSize: FontSize.small,
-    fontWeight: '600',
+    color: Colors.textTertiary,
   },
-  badgeFreeText: {
-    color: Colors.white,
-  },
-  badgeLockedText: {
-    color: Colors.textSecondary,
+  lockBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.bgTertiary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: Spacing.sm,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: Spacing.xxl * 2,
+    gap: Spacing.md,
   },
   emptyText: {
     fontSize: FontSize.body,

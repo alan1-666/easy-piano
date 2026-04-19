@@ -1,5 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { Colors, BorderRadius } from '../../theme';
 
 interface ProgressBarProps {
@@ -11,11 +16,23 @@ interface ProgressBarProps {
 
 export default function ProgressBar({
   progress,
-  height = 8,
+  height = 6,
   color = Colors.accent,
-  backgroundColor = Colors.surfaceLight,
+  backgroundColor = Colors.bgTertiary,
 }: ProgressBarProps) {
   const clampedProgress = Math.min(1, Math.max(0, progress));
+  const animatedWidth = useSharedValue(0);
+
+  useEffect(() => {
+    animatedWidth.value = withSpring(clampedProgress, {
+      damping: 20,
+      stiffness: 100,
+    });
+  }, [clampedProgress]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${animatedWidth.value * 100}%`,
+  }));
 
   return (
     <View
@@ -24,15 +41,15 @@ export default function ProgressBar({
         { height, borderRadius: height / 2, backgroundColor },
       ]}
     >
-      <View
+      <Animated.View
         style={[
           styles.fill,
           {
-            width: `${clampedProgress * 100}%`,
             height,
             borderRadius: height / 2,
             backgroundColor: color,
           },
+          fillStyle,
         ]}
       />
     </View>

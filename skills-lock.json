@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "dev-workflow": {
+      "source": "maj1999/doc-driven-dev",
+      "sourceType": "github",
+      "computedHash": "0e3212d0d1f4d833671b0d26a5262ff7e83f6c8457d9597b03f2113340e899b6"
+    },
+    "frontend-design": {
+      "source": "anthropics/claude-code",
+      "sourceType": "github",
+      "computedHash": "e8118284a6365753790d44bb2758a6032b3af27fa84696428d9233f2be0f4e78"
+    },
+    "tech-doc-system": {
+      "source": "maj1999/doc-driven-dev",
+      "sourceType": "github",
+      "computedHash": "e8f2371b6309d654ad17f4c7d3918d80a02051872f8f36d9b5044a26800b3903"
+    }
+  }
+}

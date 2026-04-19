@@ -10,8 +10,10 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Eye, EyeOff, Music } from '../../src/components/Icons';
 import { ScreenContainer, Button } from '../../src/components/common';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../src/theme';
+import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../src/theme';
 import { useUserStore } from '../../src/stores/userStore';
 
 export default function LoginScreen() {
@@ -30,19 +32,9 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setError('');
-
-    if (!email.trim()) {
-      setError('请输入邮箱地址');
-      return;
-    }
-    if (!validateEmail(email)) {
-      setError('请输入有效的邮箱地址');
-      return;
-    }
-    if (!password) {
-      setError('请输入密码');
-      return;
-    }
+    if (!email.trim()) { setError('请输入邮箱地址'); return; }
+    if (!validateEmail(email)) { setError('请输入有效的邮箱地址'); return; }
+    if (!password) { setError('请输入密码'); return; }
 
     setLoading(true);
     try {
@@ -56,114 +48,106 @@ export default function LoginScreen() {
     }
   };
 
-  const handleAppleLogin = () => {
-    Alert.alert('提示', 'Apple 登录功能即将上线');
-  };
-
-  const handleWeChatLogin = () => {
-    Alert.alert('提示', '微信登录功能即将上线');
-  };
-
   return (
     <ScreenContainer scrollable>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Logo Area */}
-        <View style={styles.logoArea}>
-          <Text style={styles.logoEmoji}>🎹</Text>
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.logoArea}>
+          <View style={styles.logoIcon}>
+            <Music size={36} color={Colors.accent} />
+          </View>
           <Text style={styles.logoText}>EasyPiano</Text>
           <Text style={styles.tagline}>让学钢琴像玩游戏一样有趣</Text>
-        </View>
+        </Animated.View>
 
-        {/* Email Input */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="请输入邮箱地址"
-            placeholderTextColor={Colors.textDisabled}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="next"
-          />
-        </View>
+        <Animated.View entering={FadeInDown.duration(400).delay(50)}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="请输入邮箱地址"
+              placeholderTextColor={Colors.textTertiary}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+            />
+          </View>
 
-        {/* Password Input */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="请输入密码"
-            placeholderTextColor={Colors.textDisabled}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            returnKeyType="done"
-            onSubmitEditing={handleLogin}
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="请输入密码"
+              placeholderTextColor={Colors.textTertiary}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? (
+                <Eye size={18} color={Colors.textSecondary} />
+              ) : (
+                <EyeOff size={18} color={Colors.textSecondary} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <Button
+            title="登 录"
+            onPress={handleLogin}
+            loading={loading}
+            disabled={!email || !password}
+            style={styles.loginButton}
           />
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>或</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
           <TouchableOpacity
-            style={styles.eyeButton}
-            onPress={() => setShowPassword(!showPassword)}
+            style={styles.socialButton}
+            onPress={() => Alert.alert('提示', 'Apple 登录功能即将上线')}
+            activeOpacity={0.85}
           >
-            <Text style={styles.eyeIcon}>{showPassword ? '👁' : '👁‍🗨'}</Text>
+            <Text style={styles.socialButtonText}>Continue with Apple</Text>
           </TouchableOpacity>
-        </View>
 
-        {/* Error Message */}
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        {/* Login Button */}
-        <Button
-          title="登 录"
-          onPress={handleLogin}
-          loading={loading}
-          disabled={!email || !password}
-          style={styles.loginButton}
-        />
-
-        {/* Divider */}
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>或</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Apple Login */}
-        <TouchableOpacity
-          style={styles.appleButton}
-          onPress={handleAppleLogin}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.appleButtonText}> Continue with Apple</Text>
-        </TouchableOpacity>
-
-        {/* WeChat Login */}
-        <TouchableOpacity
-          style={styles.wechatButton}
-          onPress={handleWeChatLogin}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.wechatButtonText}>微信登录</Text>
-        </TouchableOpacity>
-
-        {/* Register Link */}
-        <View style={styles.bottomLink}>
-          <Text style={styles.bottomText}>没有账号？</Text>
-          <TouchableOpacity onPress={() => router.push('/auth/register')}>
-            <Text style={styles.linkText}>立即注册</Text>
+          <TouchableOpacity
+            style={[styles.socialButton, styles.wechatButton]}
+            onPress={() => Alert.alert('提示', '微信登录功能即将上线')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.socialButtonTextLight}>微信登录</Text>
           </TouchableOpacity>
-        </View>
 
-        {/* Skip */}
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={() => router.replace('/(tabs)')}
-        >
-          <Text style={styles.skipText}>跳过，稍后再说</Text>
-        </TouchableOpacity>
+          <View style={styles.bottomLink}>
+            <Text style={styles.bottomText}>没有账号？</Text>
+            <TouchableOpacity onPress={() => router.push('/auth/register')}>
+              <Text style={styles.linkText}>立即注册</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={() => router.replace('/(tabs)')}
+          >
+            <Text style={styles.skipText}>跳过，稍后再说</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </KeyboardAvoidingView>
     </ScreenContainer>
   );
@@ -176,17 +160,24 @@ const styles = StyleSheet.create({
   },
   logoArea: {
     alignItems: 'center',
-    marginTop: Spacing.xl,
+    marginTop: Spacing.xxl,
     marginBottom: Spacing.xl,
   },
-  logoEmoji: {
-    fontSize: 64,
-    marginBottom: Spacing.sm,
+  logoIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.bgSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
   },
   logoText: {
-    fontSize: FontSize.h2,
-    fontWeight: '600',
-    color: Colors.accent,
+    fontSize: FontSize.h1,
+    fontWeight: FontWeight.bold,
+    color: Colors.textPrimary,
     marginBottom: Spacing.xs,
   },
   tagline: {
@@ -196,23 +187,22 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: BorderRadius.md,
-    height: 48,
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    height: 50,
     marginBottom: Spacing.md,
     paddingHorizontal: Spacing.base,
   },
   input: {
     flex: 1,
-    color: Colors.white,
+    color: Colors.textPrimary,
     fontSize: FontSize.body,
     height: '100%',
   },
   eyeButton: {
     padding: Spacing.sm,
-  },
-  eyeIcon: {
-    fontSize: 18,
   },
   errorText: {
     color: Colors.error,
@@ -231,43 +221,39 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.textDisabled,
+    backgroundColor: Colors.border,
   },
   dividerText: {
-    color: Colors.textSecondary,
+    color: Colors.textTertiary,
     fontSize: FontSize.caption,
     marginHorizontal: Spacing.md,
   },
-  appleButton: {
-    height: 48,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.white,
+  socialButton: {
+    height: 50,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.textPrimary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
-  appleButtonText: {
+  socialButtonText: {
     color: '#000000',
-    fontSize: FontSize.h4,
-    fontWeight: '600',
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
   },
   wechatButton: {
-    height: 48,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.success,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
+    backgroundColor: '#07C160',
   },
-  wechatButtonText: {
-    color: Colors.white,
-    fontSize: FontSize.h4,
-    fontWeight: '600',
+  socialButtonTextLight: {
+    color: '#FFFFFF',
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
   },
   bottomLink: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: Spacing.md,
     marginBottom: Spacing.base,
   },
   bottomText: {
@@ -277,14 +263,14 @@ const styles = StyleSheet.create({
   linkText: {
     color: Colors.accent,
     fontSize: FontSize.body,
-    fontWeight: '600',
+    fontWeight: FontWeight.semibold,
   },
   skipButton: {
     alignItems: 'center',
     paddingVertical: Spacing.md,
   },
   skipText: {
-    color: Colors.textSecondary,
+    color: Colors.textTertiary,
     fontSize: FontSize.caption,
   },
 });

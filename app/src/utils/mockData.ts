@@ -1,5 +1,5 @@
 import type { User, PracticeLog, Achievement, Course, Lesson, UserProgress } from '../types/user';
-import type { Song } from '../types/song';
+import type { Song, Track } from '../types/song';
 
 export const mockUser: User = {
   id: 1,
@@ -19,6 +19,249 @@ export const mockStreak = 7;
 export const mockTodayPracticeMinutes = 15;
 export const mockDailyGoalMinutes = 30;
 
+type StepPitch = string | string[] | null;
+type TrackStep = [StepPitch, number, number?];
+
+const NOTE_TO_SEMITONE: Record<string, number> = {
+  C: 0,
+  'C#': 1,
+  Db: 1,
+  D: 2,
+  'D#': 3,
+  Eb: 3,
+  E: 4,
+  F: 5,
+  'F#': 6,
+  Gb: 6,
+  G: 7,
+  'G#': 8,
+  Ab: 8,
+  A: 9,
+  'A#': 10,
+  Bb: 10,
+  B: 11,
+};
+
+function noteNameToMidi(noteName: string): number {
+  const match = noteName.match(/^([A-G][b#]?)(\d)$/);
+  if (!match) {
+    throw new Error(`Unsupported note name: ${noteName}`);
+  }
+
+  const [, pitchClass, octaveRaw] = match;
+  const semitone = NOTE_TO_SEMITONE[pitchClass];
+
+  if (semitone === undefined) {
+    throw new Error(`Unsupported pitch class: ${pitchClass}`);
+  }
+
+  const octave = Number(octaveRaw);
+  return (octave + 1) * 12 + semitone;
+}
+
+function buildTrack(hand: 'left' | 'right', bpm: number, steps: TrackStep[]): Track {
+  const beatMs = 60000 / bpm;
+  let currentTime = 0;
+
+  return {
+    hand,
+    notes: steps.flatMap(([pitch, beats, velocity = 84]) => {
+      const start = currentTime;
+      const duration = Math.round(beatMs * beats);
+      currentTime += duration;
+
+      if (pitch === null) {
+        return [];
+      }
+
+      const chord = Array.isArray(pitch) ? pitch : [pitch];
+
+      return chord.map((noteName) => ({
+        note: noteNameToMidi(noteName),
+        start,
+        duration,
+        velocity,
+      }));
+    }),
+  };
+}
+
+const SONG_TRACKS: Record<number, Track[]> = {
+  1: [
+    buildTrack('right', 120, [
+      ['C4', 1], ['C4', 1], ['G4', 1], ['G4', 1], ['A4', 1], ['A4', 1], ['G4', 2],
+      ['F4', 1], ['F4', 1], ['E4', 1], ['E4', 1], ['D4', 1], ['D4', 1], ['C4', 2],
+      ['G4', 1], ['G4', 1], ['F4', 1], ['F4', 1], ['E4', 1], ['E4', 1], ['D4', 2],
+      ['G4', 1], ['G4', 1], ['F4', 1], ['F4', 1], ['E4', 1], ['E4', 1], ['D4', 2],
+      ['C4', 1], ['C4', 1], ['G4', 1], ['G4', 1], ['A4', 1], ['A4', 1], ['G4', 2],
+      ['F4', 1], ['F4', 1], ['E4', 1], ['E4', 1], ['D4', 1], ['D4', 1], ['C4', 2],
+    ]),
+    buildTrack('left', 120, [
+      ['C3', 2], ['G3', 2], ['C3', 2], ['G3', 2],
+      ['F3', 2], ['C3', 2], ['G2', 2], ['D3', 2],
+      ['C3', 2], ['G3', 2], ['G2', 2], ['D3', 2],
+      ['C3', 2], ['G3', 2], ['F3', 2], ['C3', 2],
+      ['C3', 2], ['G3', 2], ['C3', 2], ['G3', 2],
+      ['F3', 2], ['C3', 2], ['G2', 2], ['C3', 2],
+    ]),
+  ],
+  2: [
+    buildTrack('right', 108, [
+      ['E4', 1], ['E4', 1], ['F4', 1], ['G4', 1],
+      ['G4', 1], ['F4', 1], ['E4', 1], ['D4', 1],
+      ['C4', 1], ['C4', 1], ['D4', 1], ['E4', 1],
+      ['E4', 1.5], ['D4', 0.5], ['D4', 2],
+      ['E4', 1], ['E4', 1], ['F4', 1], ['G4', 1],
+      ['G4', 1], ['F4', 1], ['E4', 1], ['D4', 1],
+      ['C4', 1], ['C4', 1], ['D4', 1], ['E4', 1],
+      ['D4', 1.5], ['C4', 0.5], ['C4', 2],
+    ]),
+    buildTrack('left', 108, [
+      ['C3', 2], ['G2', 2], ['C3', 2], ['G2', 2],
+      ['F3', 2], ['C3', 2], ['G2', 2], ['G2', 2],
+      ['C3', 2], ['G2', 2], ['C3', 2], ['G2', 2],
+      ['F3', 2], ['C3', 2], ['G2', 2], ['C3', 2],
+    ]),
+  ],
+  3: [
+    buildTrack('right', 100, [
+      ['G4', 0.75], ['G4', 0.25], ['A4', 1], ['G4', 1], ['C5', 1], ['B4', 2],
+      ['G4', 0.75], ['G4', 0.25], ['A4', 1], ['G4', 1], ['D5', 1], ['C5', 2],
+      ['G4', 0.75], ['G4', 0.25], ['G5', 1], ['E5', 1], ['C5', 1], ['B4', 1], ['A4', 2],
+      ['F5', 0.75], ['F5', 0.25], ['E5', 1], ['C5', 1], ['D5', 1], ['C5', 2],
+    ]),
+  ],
+  4: [
+    buildTrack('right', 72, [
+      ['D4', 1], ['F#4', 1], ['A4', 1], ['F#4', 1],
+      ['B4', 1], ['A4', 1], ['F#4', 1], ['D4', 1],
+      ['G4', 1], ['F#4', 1], ['E4', 1], ['D4', 1],
+      ['G4', 1], ['A4', 1], ['B4', 1], ['A4', 1],
+      ['D5', 1], ['A4', 1], ['F#4', 1], ['A4', 1],
+      ['B4', 1], ['F#4', 1], ['D4', 1], ['F#4', 1],
+      ['G4', 1], ['D4', 1], ['E4', 1], ['F#4', 1],
+      ['G4', 1], ['A4', 1], ['D5', 2],
+    ]),
+    buildTrack('left', 72, [
+      ['D3', 2], ['A2', 2], ['B2', 2], ['F#2', 2],
+      ['G2', 2], ['D3', 2], ['G2', 2], ['A2', 2],
+      ['D3', 2], ['A2', 2], ['B2', 2], ['F#2', 2],
+      ['G2', 2], ['D3', 2], ['A2', 2], ['D3', 2],
+    ]),
+  ],
+  5: [
+    buildTrack('right', 66, [
+      ['F4', 1], ['A4', 1], ['C5', 1], ['A4', 1],
+      ['Bb4', 1], ['D5', 1], ['F5', 1], ['D5', 1],
+      ['A4', 1], ['C5', 1], ['D5', 1], ['C5', 1],
+      ['G4', 1], ['A4', 1], ['Bb4', 1], ['A4', 1],
+      ['F4', 1], ['A4', 1], ['C5', 1], ['F5', 1],
+      ['Eb5', 1], ['D5', 1], ['C5', 1], ['Bb4', 2],
+    ]),
+  ],
+  6: [
+    buildTrack('right', 120, [
+      ['E5', 0.5], ['D#5', 0.5], ['E5', 0.5], ['D#5', 0.5], ['E5', 0.5], ['B4', 0.5], ['D5', 0.5], ['C5', 0.5],
+      ['A4', 1], [null, 0.5], ['C4', 0.5], ['E4', 0.5], ['A4', 0.5], ['B4', 1],
+      [null, 0.5], ['E4', 0.5], ['G#4', 0.5], ['B4', 0.5], ['C5', 1],
+      [null, 0.5], ['E4', 0.5], ['E5', 0.5], ['D#5', 0.5], ['E5', 0.5], ['D#5', 0.5], ['E5', 0.5], ['B4', 0.5], ['D5', 0.5], ['C5', 0.5], ['A4', 1.5],
+    ]),
+    buildTrack('left', 120, [
+      ['A3', 2], ['E3', 2], ['A3', 2], ['E3', 2],
+      ['G#3', 2], ['E3', 2], ['A3', 2], ['E3', 2],
+    ]),
+  ],
+  7: [
+    buildTrack('right', 80, [
+      ['G4', 1], ['A4', 1], ['B4', 1], ['D5', 1],
+      ['B4', 1], ['D5', 1], ['E5', 2],
+      ['D5', 1], ['B4', 1], ['A4', 1], ['G4', 1],
+      ['A4', 1], ['B4', 1], ['A4', 2],
+      ['G4', 1], ['A4', 1], ['B4', 1], ['D5', 1],
+      ['B4', 1], ['D5', 1], ['E5', 2],
+      ['G5', 1], ['E5', 1], ['D5', 1], ['B4', 1],
+      ['A4', 1], ['G4', 1], ['A4', 2],
+    ]),
+    buildTrack('left', 80, [
+      ['E3', 2], ['B3', 2], ['C3', 2], ['G3', 2],
+      ['G2', 2], ['D3', 2], ['D3', 2], ['A3', 2],
+      ['E3', 2], ['B3', 2], ['C3', 2], ['G3', 2],
+      ['G2', 2], ['D3', 2], ['E3', 2], ['B3', 2],
+    ]),
+  ],
+  8: [
+    buildTrack('right', 120, [
+      ['C4', 1], ['D4', 1], ['E4', 1], ['C4', 1],
+      ['C4', 1], ['D4', 1], ['E4', 1], ['C4', 1],
+      ['E4', 1], ['F4', 1], ['G4', 2],
+      ['E4', 1], ['F4', 1], ['G4', 2],
+      ['G4', 0.5], ['A4', 0.5], ['G4', 0.5], ['F4', 0.5], ['E4', 1], ['C4', 1],
+      ['G4', 0.5], ['A4', 0.5], ['G4', 0.5], ['F4', 0.5], ['E4', 1], ['C4', 1],
+      ['C4', 1], ['G4', 1], ['C4', 2],
+      ['C4', 1], ['G4', 1], ['C4', 2],
+    ]),
+  ],
+  9: [
+    buildTrack('right', 56, [
+      ['G#4', 0.5], ['C#5', 0.5], ['E5', 0.5], ['G#5', 0.5],
+      ['G#4', 0.5], ['C#5', 0.5], ['E5', 0.5], ['G#5', 0.5],
+      ['A4', 0.5], ['C#5', 0.5], ['E5', 0.5], ['A5', 0.5],
+      ['G#4', 0.5], ['C#5', 0.5], ['E5', 0.5], ['G#5', 0.5],
+      ['F#4', 0.5], ['B4', 0.5], ['D#5', 0.5], ['F#5', 0.5],
+      ['G#4', 0.5], ['C#5', 0.5], ['E5', 0.5], ['G#5', 0.5],
+      ['A4', 0.5], ['C#5', 0.5], ['E5', 0.5], ['A5', 0.5],
+      ['G#4', 0.5], ['C#5', 0.5], ['E5', 0.5], ['G#5', 0.5],
+    ]),
+    buildTrack('left', 56, [
+      ['C#3', 2], ['G#3', 2], ['A2', 2], ['E3', 2],
+      ['F#2', 2], ['C#3', 2], ['A2', 2], ['G#2', 2],
+    ]),
+  ],
+  10: [
+    buildTrack('right', 96, [
+      ['E4', 1], ['G4', 1], ['A4', 1], ['B4', 1],
+      ['A4', 1], ['G4', 1], ['E4', 2],
+      ['D4', 1], ['E4', 1], ['G4', 1], ['A4', 1],
+      ['G4', 1], ['E4', 1], ['D4', 2],
+      ['E4', 1], ['G4', 1], ['A4', 1], ['B4', 1],
+      ['D5', 1], ['B4', 1], ['A4', 2],
+      ['G4', 1], ['E4', 1], ['D4', 1], ['E4', 1],
+      ['G4', 1], ['E4', 1], ['D4', 2],
+    ]),
+    buildTrack('left', 96, [
+      ['C3', 2], ['G3', 2], ['A2', 2], ['E3', 2],
+      ['F2', 2], ['C3', 2], ['G2', 2], ['G2', 2],
+      ['C3', 2], ['G3', 2], ['A2', 2], ['E3', 2],
+      ['F2', 2], ['C3', 2], ['G2', 2], ['C3', 2],
+    ]),
+  ],
+  11: [
+    buildTrack('right', 88, [
+      ['E4', 1], ['G4', 1], ['A4', 1], ['B4', 1],
+      ['A4', 1], ['E4', 1], ['D4', 1], ['E4', 1],
+      ['G4', 1], ['A4', 1], ['B4', 1], ['D5', 1],
+      ['B4', 1], ['A4', 1], ['G4', 2],
+      ['E4', 1], ['G4', 1], ['A4', 1], ['B4', 1],
+      ['A4', 1], ['E4', 1], ['D4', 1], ['E4', 1],
+      ['A4', 1], ['B4', 1], ['D5', 1], ['E5', 1],
+      ['D5', 1], ['B4', 1], ['A4', 2],
+    ]),
+  ],
+  12: [
+    buildTrack('right', 110, [
+      ['E5', 0.5], ['D#5', 0.5], ['E5', 0.5], ['D#5', 0.5], ['E5', 0.5], ['B4', 0.5], ['D5', 0.5], ['C5', 0.5],
+      ['A4', 1], [null, 0.5], ['C4', 0.5], ['E4', 0.5], ['A4', 0.5], ['B4', 1],
+      [null, 0.5], ['E4', 0.5], ['G#4', 0.5], ['B4', 0.5], ['C5', 1],
+      [null, 0.5], ['E4', 0.5], ['E5', 0.5], ['D#5', 0.5], ['E5', 0.5], ['D#5', 0.5],
+      ['E5', 0.5], ['B4', 0.5], ['D5', 0.5], ['C5', 0.5], ['A4', 1.5],
+    ]),
+    buildTrack('left', 110, [
+      ['A3', 2], ['E3', 2], ['A3', 2], ['E3', 2],
+      ['G#3', 2], ['E3', 2], ['A3', 2], ['E3', 2],
+    ]),
+  ],
+};
+
 export const mockSongs: Song[] = [
   {
     id: 1,
@@ -32,7 +275,7 @@ export const mockSongs: Song[] = [
     tags: ['入门', '儿歌'],
     coverUrl: '',
     isFree: true,
-    tracks: [],
+    tracks: SONG_TRACKS[1] ?? [],
   },
   {
     id: 2,
@@ -46,7 +289,7 @@ export const mockSongs: Song[] = [
     tags: ['古典', '入门'],
     coverUrl: '',
     isFree: true,
-    tracks: [],
+    tracks: SONG_TRACKS[2] ?? [],
   },
   {
     id: 3,
@@ -60,7 +303,7 @@ export const mockSongs: Song[] = [
     tags: ['儿歌', '入门'],
     coverUrl: '',
     isFree: true,
-    tracks: [],
+    tracks: SONG_TRACKS[3] ?? [],
   },
   {
     id: 4,
@@ -74,7 +317,7 @@ export const mockSongs: Song[] = [
     tags: ['古典'],
     coverUrl: '',
     isFree: false,
-    tracks: [],
+    tracks: SONG_TRACKS[4] ?? [],
   },
   {
     id: 5,
@@ -88,7 +331,7 @@ export const mockSongs: Song[] = [
     tags: ['古典', '浪漫'],
     coverUrl: '',
     isFree: false,
-    tracks: [],
+    tracks: SONG_TRACKS[5] ?? [],
   },
   {
     id: 6,
@@ -102,7 +345,7 @@ export const mockSongs: Song[] = [
     tags: ['古典'],
     coverUrl: '',
     isFree: false,
-    tracks: [],
+    tracks: SONG_TRACKS[6] ?? [],
   },
   {
     id: 7,
@@ -116,7 +359,7 @@ export const mockSongs: Song[] = [
     tags: ['动漫', '流行'],
     coverUrl: '',
     isFree: true,
-    tracks: [],
+    tracks: SONG_TRACKS[7] ?? [],
   },
   {
     id: 8,
@@ -130,7 +373,7 @@ export const mockSongs: Song[] = [
     tags: ['儿歌', '入门'],
     coverUrl: '',
     isFree: true,
-    tracks: [],
+    tracks: SONG_TRACKS[8] ?? [],
   },
   {
     id: 9,
@@ -144,7 +387,7 @@ export const mockSongs: Song[] = [
     tags: ['古典'],
     coverUrl: '',
     isFree: false,
-    tracks: [],
+    tracks: SONG_TRACKS[9] ?? [],
   },
   {
     id: 10,
@@ -158,7 +401,7 @@ export const mockSongs: Song[] = [
     tags: ['动漫', '流行'],
     coverUrl: '',
     isFree: true,
-    tracks: [],
+    tracks: SONG_TRACKS[10] ?? [],
   },
   {
     id: 11,
@@ -172,7 +415,7 @@ export const mockSongs: Song[] = [
     tags: ['动漫'],
     coverUrl: '',
     isFree: false,
-    tracks: [],
+    tracks: SONG_TRACKS[11] ?? [],
   },
   {
     id: 12,
@@ -186,7 +429,7 @@ export const mockSongs: Song[] = [
     tags: ['古典', '入门'],
     coverUrl: '',
     isFree: true,
-    tracks: [],
+    tracks: SONG_TRACKS[12] ?? [],
   },
 ];
 

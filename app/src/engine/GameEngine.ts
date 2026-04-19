@@ -1,5 +1,5 @@
 import type { NoteData, Track } from '../types/song';
-import type { VisibleNote, HitResult, HitGrade } from '../types/game';
+import type { VisibleNote, HitResult, HitGrade, NoteJudgment } from '../types/game';
 
 interface GameNote {
   id: string;
@@ -9,6 +9,8 @@ interface GameNote {
   velocity: number;
   hand: 'left' | 'right';
   isHit: boolean;
+  holdActive: boolean;
+  holdStartGrade: HitGrade | null;
   hitTime: number | null;
   hitGrade: HitGrade | null;
 }
@@ -39,6 +41,7 @@ export class GameEngine {
   static PERFECT_WINDOW = 50;
   static GREAT_WINDOW = 100;
   static GOOD_WINDOW = 200;
+  static HOLD_THRESHOLD = 700;
 
   /**
    * Initialize the engine with song data and screen dimensions.
@@ -68,6 +71,8 @@ export class GameEngine {
           velocity: noteData.velocity,
           hand: track.hand,
           isHit: false,
+          holdActive: false,
+          holdStartGrade: null,
           hitTime: null,
           hitGrade: null,
         });
@@ -105,10 +110,16 @@ export class GameEngine {
    * Get all notes currently visible on screen based on absolute time.
    * Each note's Y position is calculated relative to the judgment line.
    */
-  getVisibleNotes(currentTime: number, keyboardWidth: number, startNote: number = 60): VisibleNote[] {
+  getVisibleNotes(
+    currentTime: number,
+    keyboardWidth: number,
+    startNote: number = 60,
+    numOctaves: number = 2
+  ): VisibleNote[] {
     const elapsedMs = currentTime - this.songStartTime;
     const visible: VisibleNote[] = [];
-    const whiteKeyWidth = keyboardWidth / 14;
+    const whiteKeyWidth = keyboardWidth / (numOctaves * 7);
+    const blackKeyWidth = whiteKeyWidth * 0.6;
 
     for (const note of this.notes) {
       // Skip notes that were hit and have faded out
@@ -120,8 +131,19 @@ export class GameEngine {
       // Calculate Y position: judgment line is where note.startMs aligns with elapsed time
       // When elapsedMs === note.startMs, note bottom edge should be at judgmentLineY
       const timeDiff = note.startMs - elapsedMs;
-      const noteBottomY = this.judgmentLineY - timeDiff * this.pixelsPerMs;
-      const noteHeight = Math.max(16, note.durationMs * this.pixelsPerMs);
+      const noteEndMs = note.startMs + note.durationMs;
+      const isSustain = this.isSustainNote(note);
+      const noteBottomY = note.holdActive
+        ? elapsedMs < note.startMs
+          ? this.judgmentLineY - timeDiff * this.pixelsPerMs
+          : this.judgmentLineY
+        : this.judgmentLineY - timeDiff * this.pixelsPerMs;
+      const noteHeight = Math.max(
+        10,
+        (note.holdActive
+          ? Math.max(0, noteEndMs - Math.max(elapsedMs, note.startMs))
+          : note.durationMs) * this.pixelsPerMs
+      );
       const noteTopY = noteBottomY - noteHeight;
 
       // Only include notes that are within screen bounds (with some buffer)
@@ -136,17 +158,21 @@ export class GameEngine {
       }
 
       // Calculate X position and width
-      const x = noteToKeyPosition(note.note, keyboardWidth, startNote);
       const isBlack = isBlackKey(note.note);
-      const width = isBlack ? whiteKeyWidth * 0.6 - 2 : whiteKeyWidth - 2;
+      const baseX = noteToKeyPosition(note.note, keyboardWidth, startNote, numOctaves);
+      const laneWidth = isBlack ? blackKeyWidth : whiteKeyWidth;
+      const width = Math.max(8, laneWidth * (isBlack ? 0.72 : 0.62));
+      const x = baseX + (laneWidth - width) / 2;
 
       visible.push({
         id: note.id,
         note: note.note,
         hand: note.hand,
+        x,
         currentY: noteTopY,
         width,
         height: noteHeight,
+        isSustain,
         isHit: note.isHit,
         opacity,
       });
@@ -168,6 +194,7 @@ export class GameEngine {
 
     for (const note of this.notes) {
       if (note.isHit) continue;
+      if (note.holdActive) continue;
       if (note.note !== noteNumber) continue;
 
       const timeDiff = Math.abs(note.startMs - elapsedMs);
@@ -191,34 +218,103 @@ export class GameEngine {
       grade = 'good';
     }
 
-    bestNote.isHit = true;
-    bestNote.hitTime = timestamp;
-    bestNote.hitGrade = grade;
+    const requiresHold = this.isSustainNote(bestNote);
+
+    if (requiresHold) {
+      bestNote.holdActive = true;
+      bestNote.holdStartGrade = grade;
+      bestNote.hitTime = null;
+      bestNote.hitGrade = null;
+    } else {
+      bestNote.isHit = true;
+      bestNote.hitTime = timestamp;
+      bestNote.hitGrade = grade;
+    }
 
     return {
       grade,
       score: 0, // Score is calculated by ScoreCalculator
       combo: 0, // Combo is tracked by ScoreCalculator
       timeDiff,
+      hand: bestNote.hand,
+      note: bestNote.note,
+      noteId: bestNote.id,
+      requiresHold,
     };
+  }
+
+  /**
+   * Resolve long notes that are either held to completion or released too early.
+   */
+  updateHoldNotes(currentTime: number, pressedNotes: Set<number>): NoteJudgment[] {
+    const elapsedMs = currentTime - this.songStartTime;
+    const judgments: NoteJudgment[] = [];
+
+    for (const note of this.notes) {
+      if (!note.holdActive || note.isHit) {
+        continue;
+      }
+
+      const noteEndMs = note.startMs + note.durationMs;
+      const releaseGraceStart = noteEndMs - GameEngine.GOOD_WINDOW;
+      const isPressed = pressedNotes.has(note.note);
+
+      if (!isPressed && elapsedMs < releaseGraceStart) {
+        note.holdActive = false;
+        note.holdStartGrade = null;
+        note.isHit = true;
+        note.hitTime = currentTime;
+        note.hitGrade = 'miss';
+        judgments.push({
+          id: note.id,
+          note: note.note,
+          hand: note.hand,
+          grade: 'miss',
+        });
+        continue;
+      }
+
+      if (elapsedMs >= noteEndMs) {
+        const grade = note.holdStartGrade ?? 'good';
+        note.holdActive = false;
+        note.holdStartGrade = null;
+        note.isHit = true;
+        note.hitTime = currentTime;
+        note.hitGrade = grade;
+        judgments.push({
+          id: note.id,
+          note: note.note,
+          hand: note.hand,
+          grade,
+        });
+      }
+    }
+
+    return judgments;
   }
 
   /**
    * Check for notes that have passed the judgment line + GOOD_WINDOW without being hit.
    * Returns array of missed note IDs.
    */
-  checkMissedNotes(currentTime: number): string[] {
+  checkMissedNotes(currentTime: number): NoteJudgment[] {
     const elapsedMs = currentTime - this.songStartTime;
-    const missed: string[] = [];
+    const missed: NoteJudgment[] = [];
 
     for (const note of this.notes) {
       if (note.isHit) continue;
+      if (note.holdActive) continue;
       // Note has passed the judgment line by more than the GOOD window
       if (elapsedMs - note.startMs > GameEngine.GOOD_WINDOW) {
         note.isHit = true;
         note.hitTime = currentTime;
         note.hitGrade = 'miss';
-        missed.push(note.id);
+        missed.push({
+          id: note.id,
+          note: note.note,
+          hand: note.hand,
+          grade: 'miss',
+        });
       }
     }
 
@@ -241,17 +337,28 @@ export class GameEngine {
     this.songStartTime = 0;
     for (const note of this.notes) {
       note.isHit = false;
+      note.holdActive = false;
+      note.holdStartGrade = null;
       note.hitTime = null;
       note.hitGrade = null;
     }
+  }
+
+  private isSustainNote(note: Pick<GameNote, 'durationMs'>): boolean {
+    return note.durationMs >= GameEngine.HOLD_THRESHOLD;
   }
 }
 
 /**
  * Map a MIDI note number to an X position on the keyboard.
  */
-export function noteToKeyPosition(note: number, keyboardWidth: number, startNote: number = 60): number {
-  const whiteKeyWidth = keyboardWidth / 14;
+export function noteToKeyPosition(
+  note: number,
+  keyboardWidth: number,
+  startNote: number = 60,
+  numOctaves: number = 2
+): number {
+  const whiteKeyWidth = keyboardWidth / (numOctaves * 7);
   const noteOffset = note - startNote;
   const octaveOffset = Math.floor(noteOffset / 12);
   const noteInOctave = ((note % 12) + 12) % 12;

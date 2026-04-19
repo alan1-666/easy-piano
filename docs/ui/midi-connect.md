@@ -1,13 +1,33 @@
 # MIDI 连接页
 
 > MIDI 设备连接与测试流程  
-> 版本: v1.0.0 | 更新日期: 2026-04-18
+> 版本: v1.2.0 | 更新日期: 2026-04-19
 
 ---
 
 ## 1. 页面概述
 
 MIDI 连接页负责管理电钢琴与 App 的连接。支持 USB MIDI 和 BLE-MIDI 两种方式。共有 4 个主要状态。
+
+## 1.1 当前实现状态 (2026-04-19)
+
+- 当前仓库里的 `MIDI 连接页` 已经改成真实 store 数据源，不再展示写死的 mock 设备
+- 页面会直接读取 `availableDevices / connectionStatus / lastNoteEvent`，并调用真实的 `startScan / connectDevice / disconnect`
+- 如果当前运行壳没有 `EasyPianoMidi` 原生模块，页面会走 no-op fallback 并显示“不支持原生 MIDI”的提示，不再让 App 启动崩溃
+- 游戏页已经直接消费 `midiStore.activeNotes`，因此原生 `noteOn / noteOff` 进入 store 后可以直接复用现有判定与结算逻辑
+- 当前产品决策已经明确: `USB MIDI` 为主链路，`BLE MIDI` 为第二接入方式，`麦克风识别` 只作为补充模式
+- `HDMI` 不作为按键输入方案，只用于投屏或音频输出
+- 最新接入决策见 [电钢琴接入方案](../architecture/piano-input-connectivity.md)
+- 工程落地细节见 [原生 MIDI 接入实施文档](../architecture/native-midi-implementation.md)
+- 当前开发进展见 [原生 MIDI 接入进展](../architecture/native-midi-progress.md)
+
+## 1.2 当前页面与后续原生接入的边界
+
+- 现在的设备列表、连接状态和测试区已经绑定真实 store，但最终效果仍依赖系统是否真的枚举到外设
+- 当前页面已经能展示最后接收到的音符事件，但连接失败重试、历史设备、自动重连还未补齐
+- Expo Go 或旧 Development Build 只能验证页面兜底，真实 MIDI 输入必须使用重新构建后的 Development Build
+- 真正的输入判定不会发生在这个页面，而是在统一的 MIDI 事件流和游戏引擎里
+- 下文的线框图仍然保留为目标体验参考，和当前实现会有少量差异
 
 ---
 

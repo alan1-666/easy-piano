@@ -1,290 +1,225 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  FlatList,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ScreenContainer, Button, Card, Header } from '../../src/components/common';
-import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '../../src/theme';
-import { useMIDIStore } from '../../src/stores/midiStore';
+import { Button, Card, Header, ScreenContainer } from '../../src/components/common';
+import { useMIDI } from '../../src/hooks/useMIDI';
+import { initializeNativeMIDIBridge } from '../../src/services/midi/nativeMIDI';
+import { BorderRadius, Colors, FontSize, FontWeight, Shadows, Spacing } from '../../src/theme';
 import type { MIDIDevice } from '../../src/types/midi';
 
-// Mock devices for UI development
-const MOCK_DEVICES: MIDIDevice[] = [
-  { id: '1', name: 'Yamaha P-125', type: 'bluetooth', connected: false },
-  { id: '2', name: 'Roland FP-30X', type: 'bluetooth', connected: false },
-  { id: '3', name: 'Kawai ES-120', type: 'bluetooth', connected: false },
-];
+function formatDeviceType(device: MIDIDevice) {
+  return device.type === 'bluetooth' ? '蓝牙 MIDI' : 'USB MIDI';
+}
 
-const MOCK_HISTORY: MIDIDevice[] = [
-  { id: 'h1', name: 'Yamaha P-125', type: 'bluetooth', connected: false },
-];
+function formatNoteName(note: number) {
+  const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const octave = Math.floor(note / 12) - 1;
+  return `${notes[note % 12]}${octave}`;
+}
 
 export default function MIDIConnectScreen() {
   const router = useRouter();
-  const connectionStatus = useMIDIStore((s) => s.connectionStatus);
-  const connectedDevice = useMIDIStore((s) => s.connectedDevice);
-  const availableDevices = useMIDIStore((s) => s.availableDevices);
-  const startScan = useMIDIStore((s) => s.startScan);
-  const stopScan = useMIDIStore((s) => s.stopScan);
-  const disconnect = useMIDIStore((s) => s.disconnect);
+  const {
+    connectionStatus,
+    connectedDevice,
+    availableDevices,
+    isNativeSupported,
+    lastNoteEvent,
+    startScan,
+    stopScan,
+    connectDevice,
+    disconnect,
+  } = useMIDI();
 
-  const [mockDevices, setMockDevices] = useState<MIDIDevice[]>([]);
-  const [mockConnected, setMockConnected] = useState<MIDIDevice | null>(null);
-  const [mockStatus, setMockStatus] = useState<'disconnected' | 'scanning' | 'connected'>(
-    'disconnected'
-  );
-  const [lastNote, setLastNote] = useState<string | null>(null);
+  useEffect(() => {
+    void initializeNativeMIDIBridge();
+  }, []);
 
-  const handleStartBleScan = useCallback(() => {
-    setMockStatus('scanning');
-    setMockDevices([]);
-    startScan();
+  const lastNoteLabel = useMemo(() => {
+    if (!lastNoteEvent) {
+      return null;
+    }
 
-    // Simulate devices appearing one by one
-    setTimeout(() => {
-      setMockDevices([MOCK_DEVICES[0]]);
-    }, 800);
-    setTimeout(() => {
-      setMockDevices([MOCK_DEVICES[0], MOCK_DEVICES[1]]);
-    }, 1500);
-    setTimeout(() => {
-      setMockDevices([MOCK_DEVICES[0], MOCK_DEVICES[1], MOCK_DEVICES[2]]);
-    }, 2200);
+    return `${formatNoteName(lastNoteEvent.note)}  力度: ${lastNoteEvent.velocity}`;
+  }, [lastNoteEvent]);
+
+  const handleRefreshDevices = useCallback(() => {
+    void startScan();
   }, [startScan]);
 
   const handleStopScan = useCallback(() => {
-    setMockStatus('disconnected');
-    stopScan();
+    void stopScan();
   }, [stopScan]);
 
-  const handleConnectDevice = useCallback((device: MIDIDevice) => {
-    setMockStatus('connected');
-    setMockConnected(device);
-  }, []);
+  const handleConnectDevice = useCallback(
+    (device: MIDIDevice) => {
+      void connectDevice(device.id);
+    },
+    [connectDevice]
+  );
 
   const handleDisconnect = useCallback(() => {
-    setMockStatus('disconnected');
-    setMockConnected(null);
-    setMockDevices([]);
-    setLastNote(null);
-    disconnect();
+    void disconnect();
   }, [disconnect]);
-
-  const handleTestNote = useCallback(() => {
-    setLastNote('C4  力度: 80');
-    setTimeout(() => setLastNote('E4  力度: 92'), 600);
-  }, []);
 
   const handleStartPlaying = useCallback(() => {
     router.replace('/(tabs)');
   }, [router]);
 
-  // Disconnected state
-  if (mockStatus === 'disconnected') {
+  const isBusy = connectionStatus === 'scanning' || connectionStatus === 'connecting';
+
+  if (connectionStatus === 'connected' && connectedDevice) {
     return (
       <ScreenContainer scrollable>
         <Header title="MIDI 连接" showBack />
 
-        {/* Illustration */}
-        <View style={styles.illustration}>
-          <Text style={styles.illustrationEmoji}>🎹</Text>
+        <View style={styles.connectedCard}>
+          <View style={styles.connectedIndicator} />
+          <View style={styles.connectedBody}>
+            <Text style={styles.connectedName}>{connectedDevice.name}</Text>
+            <Text style={styles.connectedType}>{formatDeviceType(connectedDevice)}</Text>
+            <View style={styles.connectedStatusRow}>
+              <View style={styles.statusDot} />
+              <Text style={styles.statusText}>已连接，可直接进入游戏</Text>
+            </View>
+          </View>
         </View>
 
-        <Text style={styles.heroTitle}>连接设备开始弹琴</Text>
-        <Text style={styles.heroSubtitle}>
-          选择连接方式，将电钢琴与 App 进行配对
-        </Text>
-
-        {/* Connection Method Cards */}
-        <View style={styles.cardRow}>
-          <Card
-            style={styles.methodCard}
-            onPress={() => {
-              // USB: just show a hint since we can't really detect
-              // In a real app this would check for USB devices
-            }}
-          >
-            <Text style={styles.methodIcon}>🔌</Text>
-            <Text style={styles.methodTitle}>USB 连接</Text>
-            <Text style={styles.methodDesc}>即插即用</Text>
-          </Card>
-
-          <Card style={styles.methodCard} onPress={handleStartBleScan}>
-            <Text style={styles.methodIcon}>📶</Text>
-            <Text style={styles.methodTitle}>蓝牙连接</Text>
-            <Text style={styles.methodDesc}>无线配对</Text>
-          </Card>
+        <View style={styles.sectionDivider}>
+          <View style={styles.sectionLine} />
+          <Text style={styles.sectionLabel}>信号测试</Text>
+          <View style={styles.sectionLine} />
         </View>
 
-        {/* Tip */}
-        <View style={styles.tipCard}>
-          <Text style={styles.tipText}>
-            💡 提示: USB 连接延迟更低，推荐使用 Camera Adapter
+        <Card style={styles.noteCard}>
+          <Text style={styles.notePrompt}>请按电钢琴任意琴键</Text>
+          <View style={styles.keyboardPreview}>
+            {['C', 'D', 'E', 'F', 'G', 'A', 'B'].map((note) => (
+              <View key={note} style={styles.whiteKey}>
+                <Text style={styles.keyLabel}>{note}</Text>
+              </View>
+            ))}
+          </View>
+          {lastNoteLabel ? (
+            <Text style={styles.noteValue}>最后接收: {lastNoteLabel}</Text>
+          ) : (
+            <Text style={styles.noteHint}>接收到的 `noteOn / noteOff` 会实时显示在这里。</Text>
+          )}
+        </Card>
+
+        <View style={styles.qualityCard}>
+          <Text style={styles.qualityText}>输入链路: 已建立</Text>
+          <Text style={styles.qualitySep}>|</Text>
+          <Text style={styles.qualityText}>
+            模式: {connectedDevice.type === 'bluetooth' ? '无线' : '有线'}
           </Text>
         </View>
 
-        {/* History Devices */}
-        {MOCK_HISTORY.length > 0 && (
-          <>
-            <View style={styles.sectionDivider}>
-              <View style={styles.sectionLine} />
-              <Text style={styles.sectionLabel}>历史设备</Text>
-              <View style={styles.sectionLine} />
-            </View>
-
-            {MOCK_HISTORY.map((device) => (
-              <TouchableOpacity
-                key={device.id}
-                style={styles.historyItem}
-                onPress={() => handleConnectDevice(device)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.historyIcon}>🎹</Text>
-                <View style={styles.historyInfo}>
-                  <Text style={styles.historyName}>{device.name}</Text>
-                  <Text style={styles.historyType}>
-                    {device.type === 'bluetooth' ? 'BLE' : 'USB'}
-                  </Text>
-                </View>
-                <Text style={styles.historyArrow}>{'>'}</Text>
-              </TouchableOpacity>
-            ))}
-          </>
-        )}
-      </ScreenContainer>
-    );
-  }
-
-  // Scanning state
-  if (mockStatus === 'scanning') {
-    return (
-      <ScreenContainer scrollable>
-        <Header title="MIDI 连接" showBack />
-
-        {/* Scanning indicator */}
-        <View style={styles.scanArea}>
-          <ActivityIndicator size="large" color={Colors.accent} />
-          <Text style={styles.scanText}>正在搜索蓝牙设备...</Text>
-        </View>
-
-        {/* Discovered devices section */}
-        {mockDevices.length > 0 && (
-          <>
-            <View style={styles.sectionDivider}>
-              <View style={styles.sectionLine} />
-              <Text style={styles.sectionLabel}>发现的设备</Text>
-              <View style={styles.sectionLine} />
-            </View>
-
-            {mockDevices.map((device) => (
-              <Card key={device.id} style={styles.deviceCard}>
-                <View style={styles.deviceRow}>
-                  <View style={styles.deviceInfo}>
-                    <Text style={styles.deviceName}>{device.name}</Text>
-                    <View style={styles.deviceMeta}>
-                      <Text style={styles.deviceType}>蓝牙 MIDI</Text>
-                      <Text style={styles.deviceSignal}>信号: ████░</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.connectBtn}
-                    onPress={() => handleConnectDevice(device)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.connectBtnText}>连接</Text>
-                  </TouchableOpacity>
-                </View>
-              </Card>
-            ))}
-          </>
-        )}
-
+        <Button title="开始弹琴" onPress={handleStartPlaying} style={styles.actionButton} />
         <Button
-          title="停止搜索"
+          title="断开连接"
           variant="secondary"
-          onPress={handleStopScan}
-          style={styles.actionButton}
+          onPress={handleDisconnect}
+          style={styles.disconnectButton}
         />
       </ScreenContainer>
     );
   }
 
-  // Connected state
   return (
     <ScreenContainer scrollable>
       <Header title="MIDI 连接" showBack />
 
-      {/* Connected device card */}
-      <View style={styles.connectedCard}>
-        <View style={styles.connectedIndicator} />
-        <View style={styles.connectedBody}>
-          <View style={styles.connectedTop}>
-            <View>
-              <Text style={styles.connectedName}>
-                {mockConnected?.name ?? '未知设备'}
-              </Text>
-              <Text style={styles.connectedType}>蓝牙 MIDI</Text>
-            </View>
-          </View>
-          <View style={styles.connectedStatusRow}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>已连接</Text>
-          </View>
-        </View>
+      <View style={styles.illustration}>
+        <Text style={styles.illustrationEmoji}>🎹</Text>
       </View>
 
-      {/* Signal Test Section */}
+      <Text style={styles.heroTitle}>连接设备开始弹琴</Text>
+      <Text style={styles.heroSubtitle}>支持 USB MIDI 和蓝牙 MIDI，推荐优先使用 USB。</Text>
+
+      {isNativeSupported === false && (
+        <Card style={styles.supportCard}>
+          <Text style={styles.supportTitle}>当前环境不支持原生 MIDI</Text>
+          <Text style={styles.supportText}>
+            需要使用真机上的 Development Build 才能完整验证电钢琴接入。模拟器里可以继续看页面流程，但系统外设事件不会完整到位。
+          </Text>
+        </Card>
+      )}
+
+      <View style={styles.cardRow}>
+        <Card style={styles.methodCard} onPress={handleRefreshDevices}>
+          <Text style={styles.methodIcon}>🔌</Text>
+          <Text style={styles.methodTitle}>USB 连接</Text>
+          <Text style={styles.methodDesc}>接线后刷新设备</Text>
+        </Card>
+
+        <Card style={styles.methodCard} onPress={handleRefreshDevices}>
+          <Text style={styles.methodIcon}>📶</Text>
+          <Text style={styles.methodTitle}>蓝牙连接</Text>
+          <Text style={styles.methodDesc}>完成系统配对后刷新</Text>
+        </Card>
+      </View>
+
+      <View style={styles.tipCard}>
+        <Text style={styles.tipText}>USB 延迟更低，课堂和游戏判定建议优先走有线接入。</Text>
+      </View>
+
       <View style={styles.sectionDivider}>
         <View style={styles.sectionLine} />
-        <Text style={styles.sectionLabel}>信号测试</Text>
+        <Text style={styles.sectionLabel}>{isBusy ? '刷新中的设备' : '可用设备'}</Text>
         <View style={styles.sectionLine} />
       </View>
 
-      <Text style={styles.testPrompt}>请按任意琴键测试连接</Text>
-
-      {/* Virtual keyboard test area */}
-      <TouchableOpacity
-        style={styles.testArea}
-        onPress={handleTestNote}
-        activeOpacity={0.7}
-      >
-        <View style={styles.miniKeyboard}>
-          {['C', 'D', 'E', 'F', 'G', 'A', 'B'].map((note) => (
-            <View key={note} style={styles.whiteKey}>
-              <Text style={styles.keyLabelText}>{note}</Text>
-            </View>
-          ))}
+      {isBusy && (
+        <View style={styles.scanArea}>
+          <ActivityIndicator size="large" color={Colors.accent} />
+          <Text style={styles.scanText}>
+            {connectionStatus === 'connecting' ? '正在连接设备...' : '正在刷新系统 MIDI 设备列表...'}
+          </Text>
         </View>
-        {lastNote && (
-          <Text style={styles.lastNoteText}>最后接收: {lastNote}</Text>
-        )}
-      </TouchableOpacity>
+      )}
 
-      {/* Connection quality */}
-      <View style={styles.qualityCard}>
-        <Text style={styles.qualityText}>✓ 延迟: 12ms</Text>
-        <Text style={styles.qualitySep}>|</Text>
-        <Text style={styles.qualityText}>状态: 正常</Text>
-      </View>
+      {availableDevices.length > 0 ? (
+        availableDevices.map((device) => (
+          <Card key={device.id} style={styles.deviceCard}>
+            <View style={styles.deviceRow}>
+              <View style={styles.deviceInfo}>
+                <Text style={styles.deviceName}>{device.name}</Text>
+                <Text style={styles.deviceMeta}>
+                  {formatDeviceType(device)}
+                  {device.manufacturer ? ` · ${device.manufacturer}` : ''}
+                </Text>
+              </View>
 
-      {/* Action buttons */}
-      <Button
-        title="开始弹琴"
-        onPress={handleStartPlaying}
-        style={styles.actionButton}
-      />
+              <TouchableOpacity
+                style={styles.connectBtn}
+                onPress={() => handleConnectDevice(device)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.connectBtnText}>连接</Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        ))
+      ) : (
+        <Card style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>还没有发现可用设备</Text>
+          <Text style={styles.emptyText}>
+            USB 设备接入后点一次刷新；蓝牙设备请先在系统设置里完成配对，再回来刷新列表。
+          </Text>
+        </Card>
+      )}
 
-      <Button
-        title="断开连接"
-        variant="secondary"
-        onPress={handleDisconnect}
-        style={styles.disconnectButton}
-      />
+      {isBusy ? (
+        <Button
+          title={connectionStatus === 'connecting' ? '返回设备列表' : '停止刷新'}
+          variant="secondary"
+          onPress={handleStopScan}
+          style={styles.actionButton}
+        />
+      ) : (
+        <Button title="刷新设备列表" onPress={handleRefreshDevices} style={styles.actionButton} />
+      )}
     </ScreenContainer>
   );
 }
@@ -300,8 +235,8 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontSize: FontSize.h2,
-    fontWeight: '600',
-    color: Colors.white,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
     textAlign: 'center',
     marginBottom: Spacing.sm,
   },
@@ -310,6 +245,22 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: Spacing.lg,
+    lineHeight: 22,
+  },
+  supportCard: {
+    marginBottom: Spacing.base,
+    backgroundColor: Colors.bgTertiary,
+  },
+  supportTitle: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.warning,
+    marginBottom: Spacing.sm,
+  },
+  supportText: {
+    fontSize: FontSize.caption,
+    color: Colors.textSecondary,
+    lineHeight: 20,
   },
   cardRow: {
     flexDirection: 'row',
@@ -319,239 +270,211 @@ const styles = StyleSheet.create({
   methodCard: {
     flex: 1,
     alignItems: 'center',
-    height: 100,
-    justifyContent: 'center',
+    gap: Spacing.sm,
   },
   methodIcon: {
-    fontSize: 28,
-    marginBottom: Spacing.sm,
+    fontSize: 32,
   },
   methodTitle: {
-    fontSize: FontSize.h4,
-    fontWeight: '600',
-    color: Colors.white,
-    marginBottom: Spacing.xs,
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
   },
   methodDesc: {
     fontSize: FontSize.caption,
     color: Colors.textSecondary,
+    textAlign: 'center',
   },
   tipCard: {
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    padding: Spacing.base,
+    backgroundColor: Colors.bgTertiary,
+    borderRadius: BorderRadius.xl,
     marginBottom: Spacing.lg,
   },
   tipText: {
     fontSize: FontSize.caption,
     color: Colors.textSecondary,
+    lineHeight: 20,
   },
   sectionDivider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: Spacing.base,
+    gap: Spacing.sm,
+    marginBottom: Spacing.base,
   },
   sectionLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.textDisabled,
+    backgroundColor: Colors.border,
   },
   sectionLabel: {
-    color: Colors.textSecondary,
-    fontSize: FontSize.caption,
-    marginHorizontal: Spacing.md,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
-    marginBottom: Spacing.sm,
-  },
-  historyIcon: {
-    fontSize: 24,
-    marginRight: Spacing.md,
-  },
-  historyInfo: {
-    flex: 1,
-  },
-  historyName: {
-    fontSize: FontSize.h4,
-    fontWeight: '500',
-    color: Colors.white,
-  },
-  historyType: {
     fontSize: FontSize.caption,
     color: Colors.textSecondary,
-    marginTop: Spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
-  historyArrow: {
-    color: Colors.textSecondary,
-    fontSize: FontSize.h4,
-  },
-
-  // Scanning
   scanArea: {
     alignItems: 'center',
-    marginTop: Spacing.xxl,
-    marginBottom: Spacing.lg,
+    paddingVertical: Spacing.lg,
   },
   scanText: {
+    marginTop: Spacing.base,
     fontSize: FontSize.body,
     color: Colors.textSecondary,
-    marginTop: Spacing.base,
   },
   deviceCard: {
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.base,
   },
   deviceRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.base,
   },
   deviceInfo: {
     flex: 1,
+    gap: Spacing.xs,
   },
   deviceName: {
-    fontSize: FontSize.h4,
-    fontWeight: '500',
-    color: Colors.white,
-    marginBottom: Spacing.xs,
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
   },
   deviceMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  deviceType: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-  },
-  deviceSignal: {
     fontSize: FontSize.caption,
     color: Colors.textSecondary,
   },
   connectBtn: {
-    backgroundColor: Colors.accent,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    minWidth: 60,
-    alignItems: 'center',
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.accent,
   },
   connectBtnText: {
-    color: Colors.background,
     fontSize: FontSize.caption,
-    fontWeight: '600',
+    fontWeight: FontWeight.semibold,
+    color: Colors.bgPrimary,
+  },
+  emptyCard: {
+    marginBottom: Spacing.base,
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.bgTertiary,
+  },
+  emptyTitle: {
+    fontSize: FontSize.body,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
+  },
+  emptyText: {
+    fontSize: FontSize.caption,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   actionButton: {
-    marginTop: Spacing.lg,
-  },
-
-  // Connected
-  connectedCard: {
-    flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
     marginTop: Spacing.base,
+  },
+  connectedCard: {
+    backgroundColor: Colors.bgSecondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    flexDirection: 'row',
+    gap: Spacing.base,
     ...Shadows.card,
   },
   connectedIndicator: {
-    width: 3,
+    width: 10,
+    borderRadius: BorderRadius.full,
     backgroundColor: Colors.success,
   },
   connectedBody: {
     flex: 1,
-    padding: Spacing.base,
-  },
-  connectedTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    gap: Spacing.xs,
   },
   connectedName: {
-    fontSize: FontSize.h4,
-    fontWeight: '600',
-    color: Colors.white,
+    fontSize: FontSize.h3,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textPrimary,
   },
   connectedType: {
     fontSize: FontSize.caption,
     color: Colors.textSecondary,
-    marginTop: Spacing.xs,
   },
   connectedStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.md,
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
   },
   statusDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: BorderRadius.full,
     backgroundColor: Colors.success,
-    marginRight: Spacing.sm,
   },
   statusText: {
     fontSize: FontSize.caption,
-    color: Colors.success,
-  },
-  testPrompt: {
-    fontSize: FontSize.body,
     color: Colors.textSecondary,
+  },
+  noteCard: {
+    gap: Spacing.base,
+    marginBottom: Spacing.base,
+  },
+  notePrompt: {
+    fontSize: FontSize.body,
+    color: Colors.textPrimary,
+    fontWeight: FontWeight.semibold,
     textAlign: 'center',
-    marginBottom: Spacing.base,
   },
-  testArea: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
-    alignItems: 'center',
-    marginBottom: Spacing.base,
-  },
-  miniKeyboard: {
+  keyboardPreview: {
     flexDirection: 'row',
-    height: 60,
-    gap: 2,
-    marginBottom: Spacing.sm,
+    gap: Spacing.xs,
   },
   whiteKey: {
     flex: 1,
+    height: 68,
+    borderRadius: BorderRadius.md,
     backgroundColor: Colors.white,
-    borderRadius: BorderRadius.sm,
-    justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingBottom: Spacing.xs,
+    justifyContent: 'flex-end',
+    paddingBottom: Spacing.sm,
   },
-  keyLabelText: {
-    fontSize: FontSize.keyLabel,
-    color: Colors.background,
-    fontWeight: '500',
+  keyLabel: {
+    fontSize: FontSize.small,
+    color: Colors.bgPrimary,
+    fontWeight: FontWeight.medium,
   },
-  lastNoteText: {
+  noteValue: {
+    fontSize: FontSize.body,
+    color: Colors.accent,
+    fontWeight: FontWeight.semibold,
+    textAlign: 'center',
+  },
+  noteHint: {
     fontSize: FontSize.caption,
     color: Colors.textSecondary,
-    marginTop: Spacing.sm,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   qualityCard: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.base,
     marginBottom: Spacing.base,
   },
   qualityText: {
     fontSize: FontSize.caption,
-    color: Colors.success,
+    color: Colors.textSecondary,
   },
   qualitySep: {
-    color: Colors.textDisabled,
-    marginHorizontal: Spacing.md,
+    fontSize: FontSize.caption,
+    color: Colors.textTertiary,
   },
   disconnectButton: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.xxl,
+    marginTop: Spacing.sm,
   },
 });
