@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as authApi from '../api/auth';
 import { tokenStorage, userStorage } from '../utils/storage';
+import { syncQueue } from '../offline/syncQueue';
 import type { User, AuthTokens } from '../types/user';
 
 // The server emits snake_case. This is the shape as received over the wire.
@@ -80,6 +81,9 @@ export const useUserStore = create<UserState>((set, get) => ({
         expiresIn: res.expires_in,
       },
     });
+    // Anything queued while logged-out (or while the previous session
+    // was offline) is now eligible to ship — fire and forget.
+    void syncQueue.flush();
   },
 
   logout: () => {
@@ -107,6 +111,7 @@ export const useUserStore = create<UserState>((set, get) => ({
         expiresIn: res.expires_in,
       },
     });
+    void syncQueue.flush();
   },
 
   refreshToken: async () => {

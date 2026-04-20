@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import 'expo-dev-client';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -6,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '../src/i18n';
 import { initializeNativeMIDIBridge } from '../src/services/midi/nativeMIDI';
 import { useUserStore } from '../src/stores/userStore';
+import { syncQueue } from '../src/offline/syncQueue';
 
 const queryClient = new QueryClient();
 
@@ -13,6 +15,17 @@ export default function RootLayout() {
   useEffect(() => {
     void initializeNativeMIDIBridge();
     useUserStore.getState().hydrate();
+    // Drain anything that piled up while the app was offline / closed.
+    void syncQueue.flush();
+
+    // Flush again every time the app returns to the foreground — the
+    // user may have come back online during the meantime.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && useUserStore.getState().isLoggedIn) {
+        void syncQueue.flush();
+      }
+    });
+    return () => sub.remove();
   }, []);
 
   return (
