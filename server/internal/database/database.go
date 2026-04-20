@@ -38,6 +38,16 @@ func Init(cfg config.DatabaseConfig) {
 	if err != nil {
 		log.Fatalf("Failed to auto-migrate: %v", err)
 	}
+
+	// One-shot cleanup: pre-existing rows may have '' in these columns
+	// (left over from when the fields were string instead of *string).
+	// PostgreSQL's UNIQUE index treats '' as equal across rows, so these
+	// empty strings block new registrations. Null them out once; the
+	// pointer fields mean future inserts write NULL directly.
+	DB.Exec("UPDATE users SET phone = NULL WHERE phone = ''")
+	DB.Exec("UPDATE users SET apple_id = NULL WHERE apple_id = ''")
+	DB.Exec("UPDATE users SET wechat_open_id = NULL WHERE wechat_open_id = ''")
+
 	log.Println("Database connected and migrated")
 }
 

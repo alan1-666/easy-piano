@@ -65,12 +65,15 @@ func (s *authService) Register(username, email, phone, password string) (*model.
 		return nil, "", "", fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Create user
+	// Create user — phone is only written when non-empty so the UNIQUE
+	// index stays NULL rather than '' for users who didn't provide one.
 	user := model.User{
 		Username:     username,
 		Email:        email,
-		Phone:        phone,
 		PasswordHash: string(hashedPassword),
+	}
+	if phone != "" {
+		user.Phone = &phone
 	}
 	if err := s.db.Create(&user).Error; err != nil {
 		return nil, "", "", fmt.Errorf("failed to create user: %w", err)
@@ -157,8 +160,9 @@ func (s *authService) AppleLogin(identityToken string) (*model.User, string, str
 	err = s.db.Where("apple_id = ?", claims.Sub).First(&user).Error
 	if err != nil {
 		// User doesn't exist, create one
+		appleID := claims.Sub
 		user = model.User{
-			AppleID:  claims.Sub,
+			AppleID:  &appleID,
 			Email:    claims.Email,
 			Username: "Apple User",
 		}
