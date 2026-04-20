@@ -41,7 +41,11 @@ export default function Pill({
       ]}
     >
       {leading}
-      {typeof children === 'string' ? <Text style={textStyle}>{children}</Text> : children}
+      {/* Strings, numbers, and string-plus-variable JSX (which React
+          flattens to an array of string/number children) all need to be
+          wrapped in <Text>. Only skip the wrapper when the caller passed
+          a real element (e.g. a nested <View>/<Icon>). */}
+      {React.isValidElement(children) ? children : <Text style={textStyle}>{children}</Text>}
     </View>
   );
 }
