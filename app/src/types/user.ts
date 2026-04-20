@@ -17,6 +17,12 @@ export interface UserSettings {
   metronomeOn: boolean;
   dailyGoalMin: number;
   locale: string;
+  // Audio playback toggles. keyEcho covers both virtual-keyboard taps
+  // and incoming MIDI note-ons (can't distinguish "user has own sound
+  // source" from software). autoPlay controls whether the app
+  // synthesises the target melody during gameplay.
+  keyEcho: boolean;
+  autoPlay: boolean;
 }
 
 export interface PracticeLog {

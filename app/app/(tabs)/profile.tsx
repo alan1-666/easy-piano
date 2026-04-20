@@ -149,7 +149,11 @@ export default function ProfileScreen() {
           </Animated.View>
 
           <Animated.View entering={FadeInDown.duration(400).delay(220)}>
-            <TouchableOpacity style={styles.row} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.row}
+              activeOpacity={0.85}
+              onPress={() => router.push('/settings')}
+            >
               <View style={styles.rowLeft}>
                 <SettingsIcon size={18} color={Palette.ink2} />
                 <Text style={styles.rowText}>设置</Text>

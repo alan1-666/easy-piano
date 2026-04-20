@@ -17,6 +17,7 @@ import PianoKeyboard from '../../src/components/Piano/PianoKeyboard';
 import { GameEngine, noteToKeyPosition, isBlackKey } from '../../src/engine/GameEngine';
 import { ScoreCalculator } from '../../src/engine/ScoreCalculator';
 import { useMIDIStore } from '../../src/stores/midiStore';
+import { useSettingsStore } from '../../src/stores/settingsStore';
 import { audio } from '../../src/services/audio';
 import { getSong } from '../../src/api/songs';
 import { Palette, FontWeight } from '../../src/theme';
@@ -429,13 +430,17 @@ export default function GameScreen() {
     // Autoplay: walk scheduledNotesRef by the engine's elapsed time and
     // fire audio.playNote for any notes whose start has gone by. Cheap
     // O(notes-just-crossed) per tick thanks to the sorted list + index.
+    // Gated by settings.autoPlay — when off, we still advance the index
+    // (so turning autoplay back on mid-song doesn't dump a backlog of
+    // queued notes all at once).
     if (songStartPerfRef.current !== null) {
       const elapsedMs = now - songStartPerfRef.current;
       const scheduled = scheduledNotesRef.current;
+      const autoPlay = useSettingsStore.getState().autoPlay;
       let idx = nextAutoIdxRef.current;
       while (idx < scheduled.length && scheduled[idx].start <= elapsedMs) {
         const n = scheduled[idx];
-        void audio.playNote(n.note, n.velocity);
+        if (autoPlay) void audio.playNote(n.note, n.velocity);
         idx++;
       }
       nextAutoIdxRef.current = idx;
@@ -524,7 +529,11 @@ export default function GameScreen() {
       if (gameStatus !== 'playing') return;
       // Kick off audio first — we don't want judging or state bookkeeping
       // to block the synth. audio.playNote is fire-and-forget.
-      void audio.playNote(noteNumber);
+      // Gated on settings.keyEcho; users who play a real MIDI piano
+      // typically want the app silent on key presses.
+      if (useSettingsStore.getState().keyEcho) {
+        void audio.playNote(noteNumber);
+      }
       const now = performance.now();
       const nextActiveNotes = new Set(activeNotesRef.current);
       nextActiveNotes.add(noteNumber);
