@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EasyPiano Admin</title>
+<style>
+  :root {
+    --bg: #F7F6F4;
+    --card: #ffffff;
+    --ink: #0E0E10;
+    --ink2: #5B5D66;
+    --ink3: #9599A3;
+    --line: #ECECEE;
+    --chip: #F1F1F3;
+    --primary: #FF007A;
+    --primary-soft: #FFE4F0;
+    --mint: #B8F2CC;
+    --mint-ink: #0A6E3C;
+    --coral: #FFD5CE;
+    --coral-ink: #B4301C;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "PingFang SC", sans-serif;
+    background: var(--bg); color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin: 0 0 6px; }
+  .sub { color: var(--ink2); font-size: 14px; margin: 0 0 24px; }
+
+  /* Login */
+  .login-card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; padding: 24px; max-width: 400px;
+    margin: 80px auto 0;
+  }
+  .login-card label {
+    display: block; font-size: 12px; color: var(--ink2);
+    font-weight: 600; margin-bottom: 4px;
+  }
+  .login-card input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line);
+    border-radius: 10px; font-size: 14px; margin-bottom: 14px;
+    background: var(--bg); color: var(--ink);
+  }
+  .login-card input:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+
+  /* Buttons */
+  button {
+    font-family: inherit; border: none; cursor: pointer;
+    font-weight: 600; font-size: 13px; border-radius: 8px;
+    padding: 8px 14px; transition: transform 0.05s;
+  }
+  button:active { transform: scale(0.97); }
+  .btn-primary {
+    background: var(--primary); color: #fff;
+    box-shadow: 0 4px 12px rgba(255,0,122,0.28);
+  }
+  .btn-secondary {
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .btn-danger {
+    background: transparent; color: var(--coral-ink);
+    border: 1px solid var(--coral);
+  }
+  .btn-small { padding: 6px 10px; font-size: 12px; border-radius: 6px; }
+
+  /* Header with logout */
+  .header-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 24px;
+  }
+  .user-chip {
+    background: var(--primary-soft); color: var(--primary);
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+  }
+
+  /* Songs table */
+  .table-card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--chip); }
+  th {
+    text-align: left; padding: 12px 16px;
+    font-size: 11px; font-weight: 700;
+    color: var(--ink3); letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  td {
+    padding: 14px 16px; font-size: 14px;
+    border-top: 1px solid var(--line);
+  }
+  td.small { font-size: 12px; color: var(--ink2); }
+  .tag {
+    display: inline-block; padding: 3px 8px;
+    border-radius: 999px; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .tag-has { background: var(--mint); color: var(--mint-ink); }
+  .tag-none { background: var(--chip); color: var(--ink3); }
+  .tag-json { background: var(--primary-soft); color: var(--primary); }
+  .tag-midi { background: #E3D9FF; color: #5A3FD6; }
+
+  .actions { display: flex; gap: 6px; }
+
+  /* Error banner */
+  .error-banner {
+    background: var(--coral); color: var(--coral-ink);
+    padding: 10px 14px; border-radius: 10px;
+    font-size: 13px; font-weight: 500;
+    margin-bottom: 16px;
+  }
+  .success-banner {
+    background: var(--mint); color: var(--mint-ink);
+    padding: 10px 14px; border-radius: 10px;
+    font-size: 13px; font-weight: 500;
+    margin-bottom: 16px;
+  }
+
+  /* Hidden input */
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="app"></div>
+</div>
+
+<script>
+const STATE = {
+  token: localStorage.getItem('admin_token') || null,
+  email: localStorage.getItem('admin_email') || null,
+  songs: [],
+  message: null,
+  messageKind: 'success',
+};
+
+// Most requests happen from the same origin (admin is served by the
+// Go server, same host as /v1/*). For local file:// use, default to
+// localhost:8080.
+const API_BASE = (location.origin === 'null' || location.protocol === 'file:')
+  ? 'http://localhost:8080/v1'
+  : `${location.origin}/v1`;
+
+async function api(path, { method = 'GET', body, headers = {}, raw = false } = {}) {
+  const opts = { method, headers: { ...headers } };
+  if (STATE.token) opts.headers['Authorization'] = `Bearer ${STATE.token}`;
+  if (body !== undefined) {
+    if (body instanceof FormData) {
+      opts.body = body;
+    } else {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+  }
+  const res = await fetch(`${API_BASE}${path}`, opts);
+  if (raw) return res;
+  const data = await res.json();
+  if (data.code !== 0) {
+    const err = new Error(data.message || `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return data.data;
+}
+
+function showMessage(text, kind = 'success') {
+  STATE.message = text;
+  STATE.messageKind = kind;
+  render();
+  setTimeout(() => {
+    if (STATE.message === text) { STATE.message = null; render(); }
+  }, 3500);
+}
+
+async function login(email, password) {
+  try {
+    const data = await api('/auth/login', {
+      method: 'POST',
+      body: { email: email.trim().toLowerCase(), password },
+    });
+    STATE.token = data.access_token;
+    STATE.email = data.user.email;
+    localStorage.setItem('admin_token', STATE.token);
+    localStorage.setItem('admin_email', STATE.email);
+    // Verify admin by hitting an admin-only endpoint.
+    await loadSongs();
+  } catch (err) {
+    showMessage(`登录失败: ${err.message}`, 'error');
+  }
+}
+
+function logout() {
+  STATE.token = null;
+  STATE.email = null;
+  STATE.songs = [];
+  localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_email');
+  render();
+}
+
+async function loadSongs() {
+  try {
+    const page = await api('/songs?page=1&page_size=100');
+    STATE.songs = page.items.sort((a, b) => a.id - b.id);
+    render();
+  } catch (err) {
+    if (err.status === 401) {
+      logout();
+      showMessage('登录已过期，请重新登录', 'error');
+    } else {
+      showMessage(`加载曲库失败: ${err.message}`, 'error');
+    }
+  }
+}
+
+function midiFormat(mid) {
+  if (!mid) return { kind: 'none', label: '空' };
+  const head = mid.trim()[0];
+  if (head === '[' || head === '{') return { kind: 'json', label: 'JSON' };
+  return { kind: 'midi', label: 'MIDI' };
+}
+
+async function uploadMidi(songId, file) {
+  try {
+    const fd = new FormData();
+    fd.append('midi', file);
+    const data = await api(`/admin/songs/${songId}/midi`, { method: 'POST', body: fd });
+    showMessage(`已上传: ${data.midi_bytes} 字节`, 'success');
+    await loadSongs();
+  } catch (err) {
+    showMessage(`上传失败: ${err.message}`, 'error');
+  }
+}
+
+async function clearMidi(songId) {
+  if (!confirm(`确定清空 song#${songId} 的 MIDI 数据？`)) return;
+  try {
+    await api(`/admin/songs/${songId}/midi`, { method: 'DELETE' });
+    showMessage(`已清空 song#${songId}`, 'success');
+    await loadSongs();
+  } catch (err) {
+    showMessage(`清空失败: ${err.message}`, 'error');
+  }
+}
+
+function triggerUpload(songId) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.mid,.midi,audio/midi';
+  input.onchange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) uploadMidi(songId, file);
+  };
+  input.click();
+}
+
+function render() {
+  const root = document.getElementById('app');
+  const banner = STATE.message
+    ? `<div class="${STATE.messageKind === 'error' ? 'error-banner' : 'success-banner'}">${STATE.message}</div>`
+    : '';
+
+  if (!STATE.token) {
+    root.innerHTML = `
+      <div class="login-card">
+        <h1 style="text-align:center;margin-top:0">EasyPiano Admin</h1>
+        <p class="sub" style="text-align:center">需要管理员账号</p>
+        ${banner}
+        <form id="login-form">
+          <label>邮箱</label>
+          <input type="email" name="email" required autocomplete="username">
+          <label>密码</label>
+          <input type="password" name="password" required autocomplete="current-password">
+          <button type="submit" class="btn-primary" style="width:100%;padding:10px;font-size:14px">登录</button>
+        </form>
+      </div>
+    `;
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      login(fd.get('email'), fd.get('password'));
+    });
+    return;
+  }
+
+  const rows = STATE.songs.map((s) => {
+    const fmt = midiFormat(s.midi_data);
+    return `
+      <tr>
+        <td class="small">${s.id}</td>
+        <td><strong>${s.title}</strong></td>
+        <td class="small">${s.artist}</td>
+        <td class="small">难度 ${'●'.repeat(s.difficulty)}${'○'.repeat(5-s.difficulty)}</td>
+        <td><span class="tag tag-${fmt.kind}">${fmt.label}</span></td>
+        <td class="small">${s.midi_data ? (s.midi_data.length + ' 字符') : '-'}</td>
+        <td>
+          <div class="actions">
+            <button class="btn-primary btn-small" onclick="triggerUpload(${s.id})">上传 .mid</button>
+            ${s.midi_data ? `<button class="btn-danger btn-small" onclick="clearMidi(${s.id})">清空</button>` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  root.innerHTML = `
+    <div class="header-row">
+      <div>
+        <h1>EasyPiano Admin</h1>
+        <p class="sub">管理曲库的 MIDI 数据</p>
+      </div>
+      <div>
+        <span class="user-chip">${STATE.email}</span>
+        <button class="btn-secondary btn-small" onclick="logout()" style="margin-left:8px">退出</button>
+      </div>
+    </div>
+    ${banner}
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>标题</th>
+            <th>艺术家</th>
+            <th>难度</th>
+            <th>格式</th>
+            <th>大小</th>
+            <th style="text-align:right">操作</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// Boot
+if (STATE.token) {
+  loadSongs();
+} else {
+  render();
+}
+</script>
+</body>
+</html>

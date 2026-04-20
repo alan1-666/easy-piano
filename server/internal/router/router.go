@@ -21,6 +21,14 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		c.JSON(http.StatusOK, response.Success(map[string]string{"status": "ok"}))
 	})
 
+	// Admin web UI — single-page HTML served under /admin. Auth happens
+	// client-side against /v1/auth/login + /v1/admin/* endpoints; this
+	// static file is world-readable, which is fine because it holds no
+	// secrets and every action requires a valid admin bearer token.
+	r.StaticFile("/admin", "./admin/index.html")
+	r.StaticFile("/admin/", "./admin/index.html")
+	r.Static("/admin/static", "./admin")
+
 	authService := service.NewAuthService(db, cfg.JWT)
 	authHandler := handler.NewAuthHandler(authService)
 
