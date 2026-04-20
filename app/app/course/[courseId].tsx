@@ -8,12 +8,48 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../src/theme';
-import { ProgressBar } from '../../src/components/common';
-import {
-  mockCourses,
-  mockUserProgress,
-} from '../../src/utils/mockData';
+import Svg, { Circle, Text as SvgText } from 'react-native-svg';
+import { Chevron, Play, Lock, Check } from '../../src/components/Icons';
+import { Palette, FontWeight } from '../../src/theme';
+import { Pill, RadialBg } from '../../src/components/common';
+import { mockCourses, mockUserProgress } from '../../src/utils/mockData';
+
+const TYPE_LABELS: Record<string, string> = {
+  teach: '讲解',
+  practice: '练习',
+  challenge: '挑战',
+};
+
+const TYPE_COLORS: Record<string, { bg: string; ink: string }> = {
+  teach: { bg: Palette.lilac, ink: Palette.lilacInk },
+  practice: { bg: Palette.mint, ink: Palette.mintInk },
+  challenge: { bg: Palette.primarySoft, ink: Palette.primary },
+};
+
+function RadialProgress({ pct }: { pct: number }) {
+  const r = 22;
+  const circ = 2 * Math.PI * r;
+  return (
+    <Svg width={52} height={52} viewBox="0 0 52 52">
+      <Circle cx={26} cy={26} r={r} stroke={Palette.chip} strokeWidth={4} fill="none" />
+      <Circle
+        cx={26}
+        cy={26}
+        r={r}
+        stroke={Palette.primary}
+        strokeWidth={4}
+        fill="none"
+        strokeDasharray={circ}
+        strokeDashoffset={circ * (1 - pct)}
+        strokeLinecap="round"
+        transform="rotate(-90 26 26)"
+      />
+      <SvgText x={26} y={30} textAnchor="middle" fontSize={12} fontWeight="700" fill={Palette.primary}>
+        {`${Math.round(pct * 100)}%`}
+      </SvgText>
+    </Svg>
+  );
+}
 
 export default function CourseDetailScreen() {
   const { courseId } = useLocalSearchParams<{ courseId: string }>();
@@ -22,340 +58,263 @@ export default function CourseDetailScreen() {
   const course = mockCourses.find((c) => c.id === Number(courseId));
   if (!course) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <Text style={styles.errorText}>课程未找到</Text>
       </SafeAreaView>
     );
   }
 
-  const completedCount = mockUserProgress.filter(
-    (p) => p.status === 'completed'
-  ).length;
   const totalLessons = course.lessons.length;
+  const completedCount = course.lessons.filter((l) => {
+    const p = mockUserProgress.find((x) => x.lessonId === l.id);
+    return p?.status === 'completed';
+  }).length;
   const progress = totalLessons > 0 ? completedCount / totalLessons : 0;
 
-  function getProgressForLesson(lessonId: number) {
-    return mockUserProgress.find((p) => p.lessonId === lessonId);
-  }
-
-  function getStatusIcon(status: string) {
-    switch (status) {
-      case 'completed':
-        return '✅';
-      case 'unlocked':
-        return '▶️';
-      case 'locked':
-      default:
-        return '🔒';
-    }
-  }
-
-  function getStatusTextColor(status: string) {
-    switch (status) {
-      case 'completed':
-        return Colors.success;
-      case 'unlocked':
-        return Colors.accent;
-      case 'locked':
-      default:
-        return Colors.textTertiary;
-    }
-  }
-
-  function getTypeLabel(type: string) {
-    switch (type) {
-      case 'teach':
-        return '讲解';
-      case 'practice':
-        return '练习';
-      case 'challenge':
-        return '挑战';
-      default:
-        return type;
-    }
-  }
-
-  function getTypeBadgeColor(type: string) {
-    switch (type) {
-      case 'teach':
-        return Colors.leftHand;
-      case 'practice':
-        return Colors.rightHand;
-      case 'challenge':
-        return Colors.accent;
-      default:
-        return Colors.textSecondary;
-    }
-  }
-
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
+    <View style={styles.root}>
+      <View style={styles.radial} pointerEvents="none">
+        <RadialBg from={Palette.primarySoft} to={Palette.bg} cx={0.3} cy={0} rx={0.9} ry={0.6} />
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.backText}>← 返回</Text>
-        </TouchableOpacity>
-
-        {/* Course Header */}
-        <View style={styles.headerCard}>
-          <View style={styles.headerRow}>
-            <View style={styles.progressCircle}>
-              <Text style={styles.progressCircleText}>
-                {Math.round(progress * 100)}%
-              </Text>
-            </View>
-            <View style={styles.headerInfo}>
-              <Text style={styles.levelLabel}>Level {course.level}</Text>
-              <Text style={styles.courseTitle}>{course.title}</Text>
-              <Text style={styles.courseDesc}>{course.description}</Text>
-              <Text style={styles.courseProgress}>
-                {completedCount}/{totalLessons} 课完成
-              </Text>
-              <ProgressBar progress={progress} height={6} />
-            </View>
-          </View>
-        </View>
-
-        {/* Lesson List */}
-        <Text style={styles.sectionTitle}>课程内容</Text>
-        {course.lessons.map((lesson) => {
-          const prog = getProgressForLesson(lesson.id);
-          const status = prog?.status ?? 'locked';
-          const isLocked = status === 'locked';
-
-          return (
+          <View style={styles.topBar}>
             <TouchableOpacity
-              key={lesson.id}
-              style={[
-                styles.lessonItem,
-                isLocked && styles.lessonItemLocked,
-              ]}
-              onPress={() => {
-                if (!isLocked) {
-                  router.push(`/course/lesson/${lesson.id}`);
-                }
-              }}
-              activeOpacity={isLocked ? 1 : 0.7}
+              style={styles.backBtn}
+              onPress={() => router.back()}
+              activeOpacity={0.85}
             >
-              <Text style={styles.lessonIcon}>
-                {getStatusIcon(status)}
-              </Text>
-              <View style={styles.lessonInfo}>
-                <View style={styles.lessonTitleRow}>
-                  <Text
-                    style={[
-                      styles.lessonNumber,
-                      { color: getStatusTextColor(status) },
-                    ]}
-                  >
-                    {course.level}.{lesson.orderIndex}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.lessonTitle,
-                      isLocked && styles.lessonTitleLocked,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {lesson.title}
-                  </Text>
-                </View>
-                <View style={styles.lessonMeta}>
+              <Chevron size={14} color={Palette.ink} rotate={180} />
+            </TouchableOpacity>
+            <Text style={styles.topTitle}>课程详情</Text>
+            <View style={{ width: 36 }} />
+          </View>
+
+          <View style={styles.headerCard}>
+            <View style={styles.headerRow}>
+              <RadialProgress pct={progress} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.levelTag}>LEVEL {course.level}</Text>
+                <Text style={styles.courseTitle}>{course.title}</Text>
+                <Text style={styles.courseDesc}>{course.description}</Text>
+              </View>
+            </View>
+            <Text style={styles.courseProgress}>
+              {completedCount} / {totalLessons} 课完成
+            </Text>
+          </View>
+
+          <Text style={styles.sectionTitle}>课程内容</Text>
+
+          <View style={styles.lessonList}>
+            {course.lessons.map((lesson) => {
+              const prog = mockUserProgress.find((p) => p.lessonId === lesson.id);
+              const status = prog?.status ?? 'locked';
+              const isLocked = status === 'locked';
+              const isCompleted = status === 'completed';
+              const isCurrent = status === 'unlocked';
+              const tone = TYPE_COLORS[lesson.type] ?? TYPE_COLORS.practice;
+
+              return (
+                <TouchableOpacity
+                  key={lesson.id}
+                  style={[
+                    styles.lessonItem,
+                    isCurrent && styles.lessonItemCurrent,
+                  ]}
+                  onPress={() => {
+                    if (!isLocked) router.push(`/course/lesson/${lesson.id}`);
+                  }}
+                  activeOpacity={isLocked ? 1 : 0.85}
+                  disabled={isLocked}
+                >
                   <View
                     style={[
-                      styles.typeBadge,
-                      { backgroundColor: getTypeBadgeColor(lesson.type) },
-                      isLocked && styles.typeBadgeLocked,
+                      styles.lessonDot,
+                      isCompleted && { backgroundColor: Palette.mint },
+                      isCurrent && { backgroundColor: Palette.primary },
+                      isLocked && { backgroundColor: Palette.chip },
                     ]}
                   >
-                    <Text style={styles.typeBadgeText}>
-                      {getTypeLabel(lesson.type)}
-                    </Text>
+                    {isCompleted && <Check size={12} color={Palette.mintInk} />}
+                    {isCurrent && <Play size={10} color="#fff" />}
+                    {isLocked && <Lock size={11} color={Palette.ink3} />}
                   </View>
-                  {status === 'completed' && prog?.stars != null && prog.stars > 0 && (
-                    <Text style={styles.lessonStars}>
-                      {'★'.repeat(prog.stars)}
-                      {'☆'.repeat(3 - prog.stars)}
+
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.lessonTitle,
+                        isLocked && { color: Palette.ink3 },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {course.level}.{lesson.orderIndex} {lesson.title}
                     </Text>
-                  )}
-                  {status === 'locked' && (
-                    <Text style={styles.lessonLockedText}>未解锁</Text>
-                  )}
-                  {status === 'unlocked' && (
-                    <Text style={styles.lessonUnlockedText}>未完成</Text>
-                  )}
-                </View>
-              </View>
-              {!isLocked && (
-                <Text style={styles.lessonArrow}>›</Text>
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-    </SafeAreaView>
+                    <View style={styles.lessonMeta}>
+                      <Pill bg={tone.bg} color={tone.ink} size="xs">
+                        {TYPE_LABELS[lesson.type] ?? lesson.type}
+                      </Pill>
+                      {isCompleted && prog && prog.stars > 0 && (
+                        <Text style={styles.lessonStars}>
+                          {'★'.repeat(prog.stars) + '☆'.repeat(3 - prog.stars)}
+                        </Text>
+                      )}
+                      {isCurrent && (
+                        <Text style={styles.lessonStateText}>未完成</Text>
+                      )}
+                      {isLocked && (
+                        <Text style={styles.lessonStateText}>未解锁</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {!isLocked && <Chevron size={14} color={Palette.ink3} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
+  root: { flex: 1, backgroundColor: Palette.bg },
+  radial: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 280,
   },
+  container: { flex: 1, backgroundColor: Palette.bg },
   scrollContent: {
-    paddingHorizontal: Spacing.base,
-    paddingBottom: Spacing.xl,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   errorText: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
+    fontSize: 15,
+    color: Palette.ink2,
     textAlign: 'center',
-    marginTop: Spacing.xxl,
+    marginTop: 80,
   },
-  backButton: {
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.md,
-    alignSelf: 'flex-start',
+  topBar: {
+    marginTop: 8,
+    marginBottom: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  backText: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topTitle: {
+    fontSize: 15,
+    fontWeight: FontWeight.semibold,
+    color: Palette.ink,
+    letterSpacing: -0.3,
   },
   headerCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
-    marginBottom: Spacing.lg,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 24,
+    padding: 18,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 14,
   },
-  progressCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 3,
-    borderColor: Colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Spacing.base,
-  },
-  progressCircleText: {
-    fontSize: FontSize.caption,
-    fontWeight: '700',
-    color: Colors.accent,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  levelLabel: {
-    fontSize: FontSize.caption,
-    color: Colors.accent,
-    fontWeight: '600',
+  levelTag: {
+    fontSize: 10,
+    color: Palette.ink3,
+    letterSpacing: 1,
+    fontWeight: FontWeight.bold,
   },
   courseTitle: {
-    fontSize: FontSize.h3,
-    fontWeight: '600',
-    color: Colors.white,
-    marginTop: Spacing.xs,
+    fontSize: 19,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.4,
+    marginTop: 2,
   },
   courseDesc: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    marginTop: Spacing.xs,
+    fontSize: 12,
+    color: Palette.ink2,
+    marginTop: 4,
   },
   courseProgress: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
+    fontSize: 12,
+    color: Palette.ink3,
+    marginTop: 14,
   },
   sectionTitle: {
-    fontSize: FontSize.body,
-    fontWeight: '600',
-    color: Colors.white,
-    marginBottom: Spacing.md,
+    fontSize: 16,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.3,
+    marginTop: 24,
+    marginBottom: 10,
+  },
+  lessonList: {
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 24,
+    overflow: 'hidden',
+    padding: 8,
   },
   lessonItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 12,
   },
-  lessonItemLocked: {
-    opacity: 0.5,
+  lessonItemCurrent: {
+    backgroundColor: Palette.primarySoft,
   },
-  lessonIcon: {
-    fontSize: 18,
-    marginRight: Spacing.md,
-    width: 24,
-    textAlign: 'center',
-  },
-  lessonInfo: {
-    flex: 1,
-  },
-  lessonTitleRow: {
-    flexDirection: 'row',
+  lessonDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  lessonNumber: {
-    fontSize: FontSize.caption,
-    fontWeight: '600',
+    justifyContent: 'center',
   },
   lessonTitle: {
-    fontSize: FontSize.body,
-    fontWeight: '500',
-    color: Colors.white,
-    flex: 1,
-  },
-  lessonTitleLocked: {
-    color: Colors.textTertiary,
+    fontSize: 14,
+    fontWeight: FontWeight.semibold,
+    color: Palette.ink,
+    letterSpacing: -0.1,
   },
   lessonMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
-  typeBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-  },
-  typeBadgeLocked: {
-    opacity: 0.5,
-  },
-  typeBadgeText: {
-    fontSize: FontSize.small,
-    color: Colors.white,
-    fontWeight: '600',
+    gap: 8,
+    marginTop: 6,
   },
   lessonStars: {
-    fontSize: FontSize.small,
-    color: Colors.accent,
+    fontSize: 11,
+    color: Palette.sunInk,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 0.5,
   },
-  lessonLockedText: {
-    fontSize: FontSize.small,
-    color: Colors.textTertiary,
-  },
-  lessonUnlockedText: {
-    fontSize: FontSize.small,
-    color: Colors.textSecondary,
-  },
-  lessonArrow: {
-    fontSize: FontSize.h2,
-    color: Colors.textSecondary,
-    marginLeft: Spacing.sm,
+  lessonStateText: {
+    fontSize: 11,
+    color: Palette.ink3,
   },
 });

@@ -6,33 +6,49 @@ import {
   ActivityIndicator,
   ViewStyle,
   StyleProp,
+  View,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../theme';
+import { Palette, FontWeight } from '../../theme';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'dark';
+type ButtonSize = 'lg' | 'md' | 'sm';
 
 interface ButtonProps {
-  title: string;
-  onPress: () => void;
+  title?: string;
+  children?: React.ReactNode;
+  onPress?: () => void;
   variant?: ButtonVariant;
+  size?: ButtonSize;
+  block?: boolean;
   loading?: boolean;
   disabled?: boolean;
+  leading?: React.ReactNode;
+  trailing?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
+const HEIGHTS: Record<ButtonSize, number> = { lg: 54, md: 46, sm: 36 };
+const FONT_SIZES: Record<ButtonSize, number> = { lg: 17, md: 15, sm: 13 };
+const PADDING_X: Record<ButtonSize, number> = { lg: 22, md: 22, sm: 14 };
+
 export default function Button({
   title,
+  children,
   onPress,
   variant = 'primary',
+  size = 'md',
+  block,
   loading = false,
   disabled = false,
+  leading,
+  trailing,
   style,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
@@ -42,47 +58,61 @@ export default function Button({
     transform: [{ scale: scale.value }],
   }));
 
-  const handlePressIn = () => {
-    scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
-  };
+  const h = HEIGHTS[size];
+  const fontSize = FONT_SIZES[size];
+  const paddingX = PADDING_X[size];
 
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
-  };
+  const variantStyle: ViewStyle = (() => {
+    if (variant === 'primary') return { backgroundColor: Palette.primary, ...styles.primaryShadow };
+    if (variant === 'dark') return { backgroundColor: Palette.ink };
+    if (variant === 'ghost') return { backgroundColor: 'transparent' };
+    return {
+      backgroundColor: '#fff',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: Palette.line,
+    };
+  })();
+
+  const textColor =
+    variant === 'primary' || variant === 'dark'
+      ? '#fff'
+      : variant === 'ghost'
+      ? Palette.ink2
+      : Palette.ink;
 
   return (
     <AnimatedTouchable
       style={[
+        {
+          height: h,
+          borderRadius: h / 2,
+          paddingHorizontal: paddingX,
+          alignSelf: block ? 'stretch' : 'flex-start',
+        },
         styles.base,
-        variant === 'primary' && styles.primary,
-        variant === 'secondary' && styles.secondary,
-        variant === 'ghost' && styles.ghost,
+        variantStyle,
         isDisabled && styles.disabled,
         animatedStyle,
         style,
       ]}
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      activeOpacity={0.85}
+      onPressIn={() => (scale.value = withSpring(0.97, { damping: 15, stiffness: 300 }))}
+      onPressOut={() => (scale.value = withSpring(1, { damping: 15, stiffness: 300 }))}
+      activeOpacity={0.88}
       disabled={isDisabled}
     >
       {loading ? (
-        <ActivityIndicator
-          color={variant === 'primary' ? Colors.bgPrimary : Colors.accent}
-          size="small"
-        />
+        <ActivityIndicator color={textColor} size="small" />
       ) : (
-        <Text
-          style={[
-            styles.text,
-            variant === 'primary' && styles.primaryText,
-            variant === 'secondary' && styles.secondaryText,
-            variant === 'ghost' && styles.ghostText,
-          ]}
-        >
-          {title}
-        </Text>
+        <View style={styles.row}>
+          {leading}
+          {(title || children) && (
+            <Text style={{ fontSize, fontWeight: FontWeight.semibold, color: textColor, letterSpacing: -0.2 }}>
+              {title ?? children}
+            </Text>
+          )}
+          {trailing}
+        </View>
       )}
     </AnimatedTouchable>
   );
@@ -90,38 +120,23 @@ export default function Button({
 
 const styles = StyleSheet.create({
   base: {
-    height: 50,
-    borderRadius: BorderRadius.lg,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
   },
-  primary: {
-    backgroundColor: Colors.accent,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  secondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
+  primaryShadow: {
+    shadowColor: Palette.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 24,
+    elevation: 6,
   },
   disabled: {
-    opacity: 0.35,
-  },
-  text: {
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.semibold,
-  },
-  primaryText: {
-    color: Colors.bgPrimary,
-  },
-  secondaryText: {
-    color: Colors.textPrimary,
-  },
-  ghostText: {
-    color: Colors.textSecondary,
-    fontWeight: FontWeight.regular,
+    opacity: 0.4,
   },
 });

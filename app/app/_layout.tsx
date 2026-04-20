@@ -18,7 +18,7 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#1A1A2E' },
+          contentStyle: { backgroundColor: '#F7F6F4' },
           orientation: 'portrait_up',
         }}
       >
@@ -42,7 +42,7 @@ export default function RootLayout() {
         <Stack.Screen name="auth/register" />
         <Stack.Screen name="onboarding" />
       </Stack>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
     </QueryClientProvider>
   );
 }

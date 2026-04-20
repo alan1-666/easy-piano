@@ -11,54 +11,46 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { Colors, Spacing, BorderRadius } from '../../theme';
+import { Palette, BorderRadius, Spacing } from '../../theme';
 
 interface CardProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
+  padding?: number;
+  dark?: boolean;
 }
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
-export default function Card({ children, style, onPress }: CardProps) {
+export default function Card({ children, style, onPress, padding = Spacing.base, dark }: CardProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
-  const handlePressIn = () => {
-    scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+  const baseStyle: ViewStyle = {
+    backgroundColor: dark ? Palette.ink : Palette.card,
+    borderRadius: BorderRadius.xxl,
+    padding,
+    borderWidth: dark ? 0 : StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
   };
 
   if (onPress) {
     return (
       <AnimatedTouchable
-        style={[styles.card, animatedStyle, style]}
+        style={[baseStyle, animatedStyle, style]}
         onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.85}
+        onPressIn={() => (scale.value = withSpring(0.98, { damping: 15, stiffness: 300 }))}
+        onPressOut={() => (scale.value = withSpring(1, { damping: 15, stiffness: 300 }))}
+        activeOpacity={0.9}
       >
         {children}
       </AnimatedTouchable>
     );
   }
 
-  return <View style={[styles.card, style]}>{children}</View>;
+  return <View style={[baseStyle, style]}>{children}</View>;
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.base,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-});

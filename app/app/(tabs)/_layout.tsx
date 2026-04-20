@@ -1,15 +1,15 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet } from 'react-native';
-import { Home, Music, BarChart3, User } from '../../src/components/Icons';
-import { Colors } from '../../src/theme';
+import { IconHome, IconLibrary, IconBook, IconUser } from '../../src/components/Icons';
+import { Palette } from '../../src/theme';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.accent,
-        tabBarInactiveTintColor: Colors.textTertiary,
+        tabBarActiveTintColor: Palette.primary,
+        tabBarInactiveTintColor: Palette.ink3,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabBarLabel,
       }}
@@ -18,8 +18,8 @@ export default function TabLayout() {
         name="index"
         options={{
           title: '首页',
-          tabBarIcon: ({ color, size }) => (
-            <Home size={22} color={color} strokeWidth={1.8} />
+          tabBarIcon: ({ color, focused }) => (
+            <IconHome size={22} color={color} fill={focused} />
           ),
         }}
       />
@@ -27,17 +27,17 @@ export default function TabLayout() {
         name="songs"
         options={{
           title: '曲库',
-          tabBarIcon: ({ color, size }) => (
-            <Music size={22} color={color} strokeWidth={1.8} />
+          tabBarIcon: ({ color, focused }) => (
+            <IconLibrary size={22} color={color} fill={focused} />
           ),
         }}
       />
       <Tabs.Screen
         name="practice"
         options={{
-          title: '练习',
-          tabBarIcon: ({ color, size }) => (
-            <BarChart3 size={22} color={color} strokeWidth={1.8} />
+          title: '课程',
+          tabBarIcon: ({ color, focused }) => (
+            <IconBook size={22} color={color} fill={focused} />
           ),
         }}
       />
@@ -45,8 +45,8 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: '我的',
-          tabBarIcon: ({ color, size }) => (
-            <User size={22} color={color} strokeWidth={1.8} />
+          tabBarIcon: ({ color, focused }) => (
+            <IconUser size={22} color={color} fill={focused} />
           ),
         }}
       />
@@ -56,14 +56,17 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.bgSecondary,
-    borderTopColor: Colors.border,
-    borderTopWidth: 1,
-    height: 56,
-    paddingBottom: 4,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderTopColor: Palette.line,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    height: 84,
+    paddingTop: 8,
+    paddingBottom: 28,
   },
   tabBarLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 10.5,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+    marginTop: 2,
   },
 });

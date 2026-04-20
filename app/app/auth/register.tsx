@@ -10,9 +10,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Eye, EyeOff } from '../../src/components/Icons';
-import { ScreenContainer, Button } from '../../src/components/common';
-import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../src/theme';
+import { EyeIcon, EyeOffIcon } from '../../src/components/Icons';
+import { ScreenContainer, Button, RadialBg } from '../../src/components/common';
+import { Palette, FontWeight } from '../../src/theme';
 import { useUserStore } from '../../src/stores/userStore';
 
 function getPasswordStrength(password: string): {
@@ -20,17 +20,17 @@ function getPasswordStrength(password: string): {
   color: string;
   progress: number;
 } {
-  if (password.length === 0) return { label: '', color: Colors.textTertiary, progress: 0 };
-  if (password.length < 6) return { label: '弱', color: Colors.error, progress: 0.33 };
+  if (password.length === 0) return { label: '', color: Palette.ink3, progress: 0 };
+  if (password.length < 6) return { label: '弱', color: Palette.coralInk, progress: 0.33 };
   const hasLetter = /[a-zA-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   if (hasLetter && hasNumber && password.length >= 8) {
-    return { label: '强', color: Colors.success, progress: 1 };
+    return { label: '强', color: Palette.mintInk, progress: 1 };
   }
   if (hasLetter && hasNumber) {
-    return { label: '中等', color: Colors.warning, progress: 0.66 };
+    return { label: '中等', color: Palette.sunInk, progress: 0.66 };
   }
-  return { label: '弱', color: Colors.error, progress: 0.33 };
+  return { label: '弱', color: Palette.coralInk, progress: 0.33 };
 }
 
 export default function RegisterScreen() {
@@ -58,10 +58,8 @@ export default function RegisterScreen() {
     }
     if (!password || password.length < 6) {
       newErrors.password = '密码至少6位，需包含字母和数字';
-    } else {
-      if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-        newErrors.password = '密码至少6位，需包含字母和数字';
-      }
+    } else if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      newErrors.password = '密码至少6位，需包含字母和数字';
     }
     if (password !== confirmPassword) {
       newErrors.confirmPassword = '两次密码输入不一致';
@@ -84,233 +82,251 @@ export default function RegisterScreen() {
     }
   };
 
-  const renderInput = (
-    placeholder: string,
-    value: string,
-    onChangeText: (text: string) => void,
-    errorKey: string,
-    options?: {
-      secure?: boolean;
-      showToggle?: boolean;
-      showState?: boolean;
-      onToggle?: () => void;
-      keyboardType?: 'email-address';
-      returnKeyType?: 'next' | 'done';
-      onSubmitEditing?: () => void;
-    }
-  ) => (
+  return (
+    <View style={styles.root}>
+      <View style={styles.radial} pointerEvents="none">
+        <RadialBg from={Palette.lilac} to={Palette.bg} cx={0.5} cy={0} rx={1.1} ry={0.7} />
+      </View>
+      <ScreenContainer scrollable bg="transparent">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+            <Text style={styles.title}>欢迎加入 EasyPiano</Text>
+            <Text style={styles.subtitle}>创建账号开始你的钢琴之旅</Text>
+          </Animated.View>
+
+          {errors.general ? <Text style={styles.errorText}>{errors.general}</Text> : null}
+
+          <Animated.View entering={FadeInDown.duration(400).delay(50)}>
+            <Field
+              placeholder="请输入用户名"
+              value={username}
+              onChangeText={setUsername}
+              error={errors.username}
+            />
+            <Field
+              placeholder="请输入邮箱地址"
+              value={email}
+              onChangeText={setEmail}
+              error={errors.email}
+              keyboardType="email-address"
+            />
+
+            <View style={styles.fieldGroup}>
+              <View style={[styles.inputContainer, errors.password && styles.inputError]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="请输入密码 (至少6位)"
+                  placeholderTextColor={Palette.ink3}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  returnKeyType="next"
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeIcon size={18} /> : <EyeOffIcon size={18} />}
+                </TouchableOpacity>
+              </View>
+              {password.length > 0 && (
+                <View style={styles.strengthRow}>
+                  <View style={styles.strengthBarBg}>
+                    <View
+                      style={[
+                        styles.strengthBarFill,
+                        { width: `${strength.progress * 100}%`, backgroundColor: strength.color },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.strengthLabel, { color: strength.color }]}>
+                    {strength.label}
+                  </Text>
+                </View>
+              )}
+              {errors.password ? <Text style={styles.fieldError}>{errors.password}</Text> : null}
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <View style={[styles.inputContainer, errors.confirmPassword && styles.inputError]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="确认密码"
+                  placeholderTextColor={Palette.ink3}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  returnKeyType="done"
+                  autoCapitalize="none"
+                  onSubmitEditing={handleRegister}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? <EyeIcon size={18} /> : <EyeOffIcon size={18} />}
+                </TouchableOpacity>
+              </View>
+              {errors.confirmPassword ? (
+                <Text style={styles.fieldError}>{errors.confirmPassword}</Text>
+              ) : null}
+            </View>
+
+            <View style={{ marginTop: 8 }}>
+              <Button
+                title="注 册"
+                onPress={handleRegister}
+                loading={loading}
+                disabled={!username || !email || !password || !confirmPassword}
+                variant="primary"
+                size="lg"
+                block
+              />
+            </View>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+            <View style={styles.bottomLink}>
+              <Text style={styles.bottomText}>已有账号？</Text>
+              <TouchableOpacity onPress={() => router.back()}>
+                <Text style={styles.linkText}>立即登录</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </ScreenContainer>
+    </View>
+  );
+}
+
+function Field({
+  placeholder,
+  value,
+  onChangeText,
+  error,
+  keyboardType,
+}: {
+  placeholder: string;
+  value: string;
+  onChangeText: (s: string) => void;
+  error?: string;
+  keyboardType?: 'email-address';
+}) {
+  return (
     <View style={styles.fieldGroup}>
-      <View style={[styles.inputContainer, errors[errorKey] && styles.inputError]}>
+      <View style={[styles.inputContainer, !!error && styles.inputError]}>
         <TextInput
           style={styles.input}
           placeholder={placeholder}
-          placeholderTextColor={Colors.textTertiary}
+          placeholderTextColor={Palette.ink3}
           value={value}
           onChangeText={onChangeText}
-          secureTextEntry={options?.secure && !options?.showState}
-          keyboardType={options?.keyboardType}
+          keyboardType={keyboardType}
           autoCapitalize="none"
           autoCorrect={false}
-          returnKeyType={options?.returnKeyType || 'next'}
-          onSubmitEditing={options?.onSubmitEditing}
+          returnKeyType="next"
         />
-        {options?.showToggle && (
-          <TouchableOpacity style={styles.eyeButton} onPress={options.onToggle}>
-            {options.showState ? (
-              <Eye size={18} color={Colors.textSecondary} />
-            ) : (
-              <EyeOff size={18} color={Colors.textSecondary} />
-            )}
-          </TouchableOpacity>
-        )}
       </View>
-      {errors[errorKey] ? (
-        <Text style={styles.fieldError}>{errors[errorKey]}</Text>
-      ) : null}
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
-  );
-
-  return (
-    <ScreenContainer scrollable>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
-          <Text style={styles.title}>欢迎加入 EasyPiano</Text>
-          <Text style={styles.subtitle}>创建账号开始你的钢琴之旅</Text>
-        </Animated.View>
-
-        {errors.general ? <Text style={styles.errorText}>{errors.general}</Text> : null}
-
-        <Animated.View entering={FadeInDown.duration(400).delay(50)}>
-          {renderInput('请输入用户名', username, setUsername, 'username')}
-          {renderInput('请输入邮箱地址', email, setEmail, 'email', {
-            keyboardType: 'email-address',
-          })}
-
-          <View style={styles.fieldGroup}>
-            <View style={[styles.inputContainer, errors.password && styles.inputError]}>
-              <TextInput
-                style={styles.input}
-                placeholder="请输入密码 (至少6位)"
-                placeholderTextColor={Colors.textTertiary}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                returnKeyType="next"
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <Eye size={18} color={Colors.textSecondary} />
-                ) : (
-                  <EyeOff size={18} color={Colors.textSecondary} />
-                )}
-              </TouchableOpacity>
-            </View>
-            {password.length > 0 && (
-              <View style={styles.strengthRow}>
-                <View style={styles.strengthBarBg}>
-                  <View
-                    style={[
-                      styles.strengthBarFill,
-                      { width: `${strength.progress * 100}%`, backgroundColor: strength.color },
-                    ]}
-                  />
-                </View>
-                <Text style={[styles.strengthLabel, { color: strength.color }]}>
-                  {strength.label}
-                </Text>
-              </View>
-            )}
-            {errors.password ? <Text style={styles.fieldError}>{errors.password}</Text> : null}
-          </View>
-
-          {renderInput('确认密码', confirmPassword, setConfirmPassword, 'confirmPassword', {
-            secure: true,
-            showToggle: true,
-            showState: showConfirmPassword,
-            onToggle: () => setShowConfirmPassword(!showConfirmPassword),
-            returnKeyType: 'done',
-            onSubmitEditing: handleRegister,
-          })}
-
-          <Button
-            title="注 册"
-            onPress={handleRegister}
-            loading={loading}
-            disabled={!username || !email || !password || !confirmPassword}
-            style={styles.registerButton}
-          />
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-          <View style={styles.bottomLink}>
-            <Text style={styles.bottomText}>已有账号？</Text>
-            <TouchableOpacity onPress={() => router.back()}>
-              <Text style={styles.linkText}>立即登录</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardView: {
-    flex: 1,
-    paddingBottom: Spacing.xxl,
+  root: { flex: 1, backgroundColor: Palette.bg },
+  radial: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 380,
   },
   header: {
-    marginTop: Spacing.xl,
-    marginBottom: Spacing.lg,
+    marginTop: 32,
+    marginBottom: 24,
   },
   title: {
-    fontSize: FontSize.h1,
+    fontSize: 28,
     fontWeight: FontWeight.bold,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.xs,
+    color: Palette.ink,
+    letterSpacing: -0.7,
+    marginBottom: 6,
   },
   subtitle: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    fontSize: 13,
+    color: Palette.ink2,
   },
-  fieldGroup: {
-    marginBottom: Spacing.md,
-  },
+  fieldGroup: { marginBottom: 12 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: Palette.card,
+    borderRadius: 14,
     height: 50,
-    paddingHorizontal: Spacing.base,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    paddingHorizontal: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
   },
   inputError: {
-    borderColor: Colors.error,
+    borderColor: Palette.coralInk,
   },
   input: {
     flex: 1,
-    color: Colors.textPrimary,
-    fontSize: FontSize.body,
+    color: Palette.ink,
+    fontSize: 15,
     height: '100%',
   },
-  eyeButton: {
-    padding: Spacing.sm,
-  },
+  eyeButton: { padding: 8 },
   fieldError: {
-    color: Colors.error,
-    fontSize: FontSize.caption,
-    marginTop: Spacing.xs,
+    color: Palette.coralInk,
+    fontSize: 12,
+    marginTop: 6,
+    marginLeft: 4,
   },
   errorText: {
-    color: Colors.error,
-    fontSize: FontSize.caption,
-    marginBottom: Spacing.md,
+    color: Palette.coralInk,
+    fontSize: 13,
+    marginBottom: 12,
   },
   strengthRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.sm,
+    marginTop: 8,
   },
   strengthBarBg: {
     flex: 1,
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: Colors.bgTertiary,
-    marginRight: Spacing.sm,
+    backgroundColor: Palette.chip,
+    marginRight: 8,
   },
   strengthBarFill: {
     height: 3,
     borderRadius: 1.5,
   },
   strengthLabel: {
-    fontSize: FontSize.caption,
+    fontSize: 13,
     width: 30,
-  },
-  registerButton: {
-    marginTop: Spacing.base,
-    width: '100%',
+    fontWeight: FontWeight.semibold,
   },
   bottomLink: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: Spacing.lg,
+    marginTop: 24,
+    gap: 4,
   },
   bottomText: {
-    color: Colors.textSecondary,
-    fontSize: FontSize.body,
+    color: Palette.ink2,
+    fontSize: 14,
   },
   linkText: {
-    color: Colors.accent,
-    fontSize: FontSize.body,
+    color: Palette.primary,
+    fontSize: 14,
     fontWeight: FontWeight.semibold,
   },
 });

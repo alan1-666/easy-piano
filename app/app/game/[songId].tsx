@@ -16,7 +16,9 @@ import PianoKeyboard from '../../src/components/Piano/PianoKeyboard';
 import { GameEngine, noteToKeyPosition, isBlackKey } from '../../src/engine/GameEngine';
 import { ScoreCalculator } from '../../src/engine/ScoreCalculator';
 import { useMIDIStore } from '../../src/stores/midiStore';
-import { Colors, FontSize, Spacing, BorderRadius } from '../../src/theme';
+import { Palette, FontWeight } from '../../src/theme';
+import { Pill } from '../../src/components/common';
+import { Pause, Flame } from '../../src/components/Icons';
 import { mockSongs } from '../../src/utils/mockData';
 import type { HitGrade, HandResultSummary, SongHand, VisibleNote } from '../../src/types/game';
 import type { NoteData, Song, Track } from '../../src/types/song';
@@ -41,18 +43,14 @@ const DEMO_MELODY: NoteData[] = [
   { note: 60, start: 7000, duration: 1000, velocity: 80 },
 ];
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
 const MIN_OCTAVES = 2;
 const MAX_OCTAVES = 3;
 
-// Grade display config
 const GRADE_COLORS: Record<HitGrade, string> = {
-  perfect: Colors.perfect,
-  great: Colors.great,
-  good: Colors.good,
-  miss: Colors.miss,
+  perfect: Palette.primary,
+  great: Palette.lilacInk,
+  good: Palette.mintInk,
+  miss: Palette.coralInk,
 };
 
 const GRADE_LABELS: Record<HitGrade, string> = {
@@ -62,9 +60,6 @@ const GRADE_LABELS: Record<HitGrade, string> = {
   miss: 'Miss!',
 };
 
-// ---------------------------------------------------------------------------
-// Hit effect type
-// ---------------------------------------------------------------------------
 interface ActiveHitEffect {
   id: number;
   grade: HitGrade;
@@ -93,20 +88,15 @@ const DEFAULT_SONG = mockSongs[0];
 
 function getSelectedSong(songIdParam?: string): Song {
   const songId = Number(songIdParam);
-
   if (Number.isFinite(songId)) {
     const matchedSong = mockSongs.find((song) => song.id === songId);
-    if (matchedSong) {
-      return matchedSong;
-    }
+    if (matchedSong) return matchedSong;
   }
-
   return DEFAULT_SONG;
 }
 
 function buildDemoTracks(songId: number): Track[] {
   const transpose = (songId % 4) * 2;
-
   return [
     {
       hand: 'right',
@@ -123,12 +113,10 @@ function buildPlayableSong(song: Song): PlayableSong {
   const lastNoteEnd = tracks.reduce((maxEnd, track) => {
     const trackEnd = track.notes.reduce(
       (noteEnd, note) => Math.max(noteEnd, note.start + note.duration),
-      0
+      0,
     );
-
     return Math.max(maxEnd, trackEnd);
   }, 0);
-
   return {
     id: song.id,
     title: song.title,
@@ -142,47 +130,27 @@ function buildPlayableSong(song: Song): PlayableSong {
 
 function getKeyboardConfig(song: PlayableSong) {
   const notes = song.tracks.flatMap((track) => track.notes.map((note) => note.note));
-
   if (notes.length === 0) {
-    return {
-      startNote: 60,
-      numOctaves: MIN_OCTAVES,
-      numWhiteKeys: MIN_OCTAVES * 7,
-    };
+    return { startNote: 60, numOctaves: MIN_OCTAVES, numWhiteKeys: MIN_OCTAVES * 7 };
   }
-
   const minNote = Math.min(...notes);
   const maxNote = Math.max(...notes);
   let startNote = Math.floor(minNote / 12) * 12;
-  let numOctaves = Math.max(
-    MIN_OCTAVES,
-    Math.ceil((maxNote - startNote + 1) / 12)
-  );
-
+  let numOctaves = Math.max(MIN_OCTAVES, Math.ceil((maxNote - startNote + 1) / 12));
   if (numOctaves > MAX_OCTAVES) {
     numOctaves = MAX_OCTAVES;
     const maxVisibleNote = startNote + numOctaves * 12 - 1;
-
     if (maxNote > maxVisibleNote) {
       const shiftOctaves = Math.ceil((maxNote - maxVisibleNote) / 12);
       startNote += shiftOctaves * 12;
     }
   }
-
-  return {
-    startNote,
-    numOctaves,
-    numWhiteKeys: numOctaves * 7,
-  };
+  return { startNote, numOctaves, numWhiteKeys: numOctaves * 7 };
 }
 
 function calculateAccuracy(perfectCount: number, greatCount: number, goodCount: number, missCount: number) {
   const totalNotes = perfectCount + greatCount + goodCount + missCount;
-
-  if (totalNotes === 0) {
-    return 0;
-  }
-
+  if (totalNotes === 0) return 0;
   const weightedHits = perfectCount * 1 + greatCount * 0.85 + goodCount * 0.65;
   return Math.round((weightedHits / totalNotes) * 1000) / 10;
 }
@@ -203,14 +171,10 @@ function calculateXpEarned(score: number, accuracy: number, difficulty: number):
 
 function getGradeCountKey(grade: HitGrade): GradeCountKey {
   switch (grade) {
-    case 'perfect':
-      return 'perfectCount';
-    case 'great':
-      return 'greatCount';
-    case 'good':
-      return 'goodCount';
-    case 'miss':
-      return 'missCount';
+    case 'perfect': return 'perfectCount';
+    case 'great': return 'greatCount';
+    case 'good': return 'goodCount';
+    case 'miss': return 'missCount';
   }
 }
 
@@ -230,28 +194,24 @@ function calculateHandAccuracy(summary: HandResultSummary) {
     summary.perfectCount,
     summary.greatCount,
     summary.goodCount,
-    summary.missCount
+    summary.missCount,
   );
 }
 
 function buildInitialHandStats(song: PlayableSong): HandStatsMap {
   const totals = song.tracks.reduce(
-    (accumulator, track) => {
-      accumulator[track.hand] += track.notes.length;
-      return accumulator;
+    (acc, track) => {
+      acc[track.hand] += track.notes.length;
+      return acc;
     },
-    { left: 0, right: 0 } as Record<SongHand, number>
+    { left: 0, right: 0 } as Record<SongHand, number>,
   );
-
   return {
     left: createEmptyHandSummary(totals.left),
     right: createEmptyHandSummary(totals.right),
   };
 }
 
-// ---------------------------------------------------------------------------
-// Game Screen Component
-// ---------------------------------------------------------------------------
 export default function GameScreen() {
   const { songId: songIdParam } = useLocalSearchParams<{ songId?: string }>();
   const router = useRouter();
@@ -265,23 +225,20 @@ export default function GameScreen() {
   const layout = useMemo(() => {
     const topInset = Math.max(insets.top, isLandscape ? 10 : 18);
     const bottomInset = Math.max(insets.bottom, isLandscape ? 10 : 18);
-    const topBarHeight = isLandscape ? 38 : 44;
-    const modeBarHeight = isLandscape ? 18 : 20;
-    const progressBarHeight = 3;
+    const topBarHeight = isLandscape ? 50 : 56;
+    const progressBarHeight = 2;
     const keyboardHeight = isLandscape
       ? Math.min(Math.max(windowHeight * 0.28, 160), 220)
       : 135;
-    const feedbackHeight = isLandscape ? 44 : 60;
-    const canvasTop = topInset + topBarHeight + modeBarHeight;
+    const feedbackHeight = isLandscape ? 50 : 60;
+    const canvasTop = topInset + topBarHeight;
     const canvasBottom =
       windowHeight - bottomInset - progressBarHeight - keyboardHeight - feedbackHeight;
     const canvasHeight = Math.max(180, canvasBottom - canvasTop);
-
     return {
       topInset,
       bottomInset,
       topBarHeight,
-      modeBarHeight,
       progressBarHeight,
       keyboardHeight,
       feedbackHeight,
@@ -290,11 +247,9 @@ export default function GameScreen() {
     };
   }, [insets.bottom, insets.top, isLandscape, windowHeight]);
 
-  // Engine refs (avoid re-renders on every frame)
   const engineRef = useRef(new GameEngine());
   const scoreCalcRef = useRef(new ScoreCalculator());
 
-  // Rendering state driven by requestAnimationFrame
   const [visibleNotes, setVisibleNotes] = useState<VisibleNote[]>([]);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
@@ -304,9 +259,8 @@ export default function GameScreen() {
   const [hitGrades, setHitGrades] = useState<Map<number, string>>(new Map());
   const [handStats, setHandStats] = useState<HandStatsMap>(() => buildInitialHandStats(gameSong));
 
-  // Game state
   const [gameStatus, setGameStatus] = useState<'countdown' | 'playing' | 'paused' | 'completed'>(
-    'countdown'
+    'countdown',
   );
   const [countdownValue, setCountdownValue] = useState(3);
 
@@ -321,31 +275,27 @@ export default function GameScreen() {
     () =>
       Array.from(
         { length: keyboardConfig.numWhiteKeys + 1 },
-        (_, index) => (windowWidth / keyboardConfig.numWhiteKeys) * index
+        (_, index) => (windowWidth / keyboardConfig.numWhiteKeys) * index,
       ),
-    [keyboardConfig.numWhiteKeys, windowWidth]
+    [keyboardConfig.numWhiteKeys, windowWidth],
   );
 
   useEffect(() => {
     void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-
     return () => {
       void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
     };
   }, []);
 
-  // ------ Initialize engine ------
   useEffect(() => {
     if (completionTimerRef.current) {
       clearTimeout(completionTimerRef.current);
       completionTimerRef.current = null;
     }
-
     if (resultTimerRef.current) {
       clearTimeout(resultTimerRef.current);
       resultTimerRef.current = null;
     }
-
     engineRef.current.reset();
     engineRef.current.init(gameSong, layout.canvasHeight, layout.judgmentLineY);
     scoreCalcRef.current.reset();
@@ -360,15 +310,9 @@ export default function GameScreen() {
     setHandStats(buildInitialHandStats(gameSong));
     setCountdownValue(3);
     setGameStatus('countdown');
-
     return () => {
-      if (completionTimerRef.current) {
-        clearTimeout(completionTimerRef.current);
-      }
-
-      if (resultTimerRef.current) {
-        clearTimeout(resultTimerRef.current);
-      }
+      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+      if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
     };
   }, [gameSong, layout.canvasHeight, layout.judgmentLineY]);
 
@@ -379,13 +323,9 @@ export default function GameScreen() {
         ...prev[hand],
         [countKey]: prev[hand][countKey] + 1,
       };
-
       return {
         ...prev,
-        [hand]: {
-          ...nextSummary,
-          accuracy: calculateHandAccuracy(nextSummary),
-        },
+        [hand]: { ...nextSummary, accuracy: calculateHandAccuracy(nextSummary) },
       };
     });
   }, []);
@@ -396,7 +336,7 @@ export default function GameScreen() {
         noteNumber,
         windowWidth,
         keyboardConfig.startNote,
-        keyboardConfig.numOctaves
+        keyboardConfig.numOctaves,
       );
       const effectId = hitEffectIdRef.current++;
       setHitEffects((prev) => [
@@ -404,62 +344,48 @@ export default function GameScreen() {
         { id: effectId, grade, startTime: timestamp, x, label },
       ]);
     },
-    [keyboardConfig.numOctaves, keyboardConfig.startNote, windowWidth]
+    [keyboardConfig.numOctaves, keyboardConfig.startNote, windowWidth],
   );
 
-  // ------ Countdown ------
   useEffect(() => {
     if (gameStatus !== 'countdown') return;
-
     if (countdownValue <= 0) {
       setGameStatus('playing');
       engineRef.current.start(performance.now());
       return;
     }
-
     const timer = setTimeout(() => {
       setCountdownValue((v) => v - 1);
     }, 1000);
-
     return () => clearTimeout(timer);
   }, [gameStatus, countdownValue]);
 
-  // ------ Game loop ------
   const gameLoop = useCallback(() => {
     const now = performance.now();
     const engine = engineRef.current;
     const holdJudgments = engine.updateHoldNotes(now, activeNotesRef.current);
-
     for (const judgment of holdJudgments) {
       scoreCalcRef.current.calculateHit(judgment.grade);
       recordHandGrade(judgment.hand, judgment.grade);
       pushHitEffect(judgment.note, judgment.grade, now);
     }
-
-    // Check missed notes
     const missedNotes = engine.checkMissedNotes(now);
     for (const missedNote of missedNotes) {
       scoreCalcRef.current.calculateHit(missedNote.grade);
       recordHandGrade(missedNote.hand, missedNote.grade);
     }
-
-    // Get visible notes
     const notes = engine.getVisibleNotes(
       now,
       windowWidth,
       keyboardConfig.startNote,
-      keyboardConfig.numOctaves
+      keyboardConfig.numOctaves,
     );
     const prog = engine.getProgress(now);
-
     setVisibleNotes(notes);
     setProgress(prog);
     setScore(scoreCalcRef.current.getScore());
     setCombo(scoreCalcRef.current.getCombo());
-
-    // Clean up old hit effects
     setHitEffects((prev) => prev.filter((e) => now - e.startTime < 600));
-
     if (prog < 1) {
       frameIdRef.current = requestAnimationFrame(gameLoop);
     } else {
@@ -474,37 +400,19 @@ export default function GameScreen() {
       frameIdRef.current = requestAnimationFrame(gameLoop);
     }
     return () => {
-      if (frameIdRef.current) {
-        cancelAnimationFrame(frameIdRef.current);
-      }
+      if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current);
     };
   }, [gameStatus, gameLoop]);
 
   const handleViewResults = useCallback(() => {
     const counts = scoreCalcRef.current.getCounts();
-    const accuracy = calculateAccuracy(
-      counts.perfect,
-      counts.great,
-      counts.good,
-      counts.miss
-    );
+    const accuracy = calculateAccuracy(counts.perfect, counts.great, counts.good, counts.miss);
     const stars = calculateStars(accuracy);
-    const xpEarned = calculateXpEarned(
-      scoreCalcRef.current.getScore(),
-      accuracy,
-      gameSong.difficulty
-    );
+    const xpEarned = calculateXpEarned(scoreCalcRef.current.getScore(), accuracy, gameSong.difficulty);
     const finalizedHandStats = {
-      left: {
-        ...handStats.left,
-        accuracy: calculateHandAccuracy(handStats.left),
-      },
-      right: {
-        ...handStats.right,
-        accuracy: calculateHandAccuracy(handStats.right),
-      },
+      left: { ...handStats.left, accuracy: calculateHandAccuracy(handStats.left) },
+      right: { ...handStats.right, accuracy: calculateHandAccuracy(handStats.right) },
     };
-
     router.replace({
       pathname: '/game/result',
       params: {
@@ -527,14 +435,10 @@ export default function GameScreen() {
   }, [gameSong, handStats, router]);
 
   useEffect(() => {
-    if (gameStatus !== 'completed') {
-      return;
-    }
-
+    if (gameStatus !== 'completed') return;
     resultTimerRef.current = setTimeout(() => {
       handleViewResults();
     }, 900);
-
     return () => {
       if (resultTimerRef.current) {
         clearTimeout(resultTimerRef.current);
@@ -543,25 +447,19 @@ export default function GameScreen() {
     };
   }, [gameStatus, handleViewResults]);
 
-  // ------ Handle key press ------
   const handleKeyPress = useCallback(
     (noteNumber: number) => {
       if (gameStatus !== 'playing') return;
-
       const now = performance.now();
       const nextActiveNotes = new Set(activeNotesRef.current);
       nextActiveNotes.add(noteNumber);
       activeNotesRef.current = nextActiveNotes;
-
-      // Add to active notes
       setActiveNotes((prev) => {
         const next = new Set(prev);
         next.add(noteNumber);
         return next;
       });
-
       const result = engineRef.current.handleNoteInput(noteNumber, now);
-
       if (result) {
         if (!result.requiresHold) {
           scoreCalcRef.current.calculateHit(result.grade);
@@ -569,22 +467,12 @@ export default function GameScreen() {
           setCombo(scoreCalcRef.current.getCombo());
           recordHandGrade(result.hand, result.grade);
         }
-
-        // Set hit grade for key color
         setHitGrades((prev) => {
           const next = new Map(prev);
           next.set(noteNumber, result.grade);
           return next;
         });
-
-        pushHitEffect(
-          noteNumber,
-          result.grade,
-          now,
-          result.requiresHold ? 'Hold' : undefined
-        );
-
-        // Clear grade highlight after 300ms
+        pushHitEffect(noteNumber, result.grade, now, result.requiresHold ? 'Hold' : undefined);
         setTimeout(() => {
           setHitGrades((prev) => {
             const next = new Map(prev);
@@ -594,14 +482,13 @@ export default function GameScreen() {
         }, 300);
       }
     },
-    [gameStatus, pushHitEffect, recordHandGrade]
+    [gameStatus, pushHitEffect, recordHandGrade],
   );
 
   const handleKeyRelease = useCallback((noteNumber: number) => {
     const nextActiveNotes = new Set(activeNotesRef.current);
     nextActiveNotes.delete(noteNumber);
     activeNotesRef.current = nextActiveNotes;
-
     setActiveNotes((prev) => {
       const next = new Set(prev);
       next.delete(noteNumber);
@@ -611,23 +498,15 @@ export default function GameScreen() {
 
   useEffect(() => {
     const previousNotes = previousMIDINotesRef.current;
-
     for (const note of midiActiveNotes) {
-      if (!previousNotes.has(note)) {
-        handleKeyPress(note);
-      }
+      if (!previousNotes.has(note)) handleKeyPress(note);
     }
-
     for (const note of previousNotes) {
-      if (!midiActiveNotes.has(note)) {
-        handleKeyRelease(note);
-      }
+      if (!midiActiveNotes.has(note)) handleKeyRelease(note);
     }
-
     previousMIDINotesRef.current = new Set(midiActiveNotes);
   }, [handleKeyPress, handleKeyRelease, midiActiveNotes]);
 
-  // ------ Pause / Resume ------
   const handlePause = useCallback(() => {
     if (gameStatus === 'playing') {
       cancelAnimationFrame(frameIdRef.current);
@@ -640,10 +519,8 @@ export default function GameScreen() {
       if (appStateRef.current === 'active' && nextState !== 'active') {
         handlePause();
       }
-
       appStateRef.current = nextState;
     });
-
     return () => {
       subscription.remove();
     };
@@ -651,7 +528,6 @@ export default function GameScreen() {
 
   const handleResume = useCallback(() => {
     if (gameStatus === 'paused') {
-      // Adjust start time to account for pause duration
       engineRef.current.start(performance.now() - progress * gameSong.duration * 1000);
       setGameStatus('playing');
     }
@@ -680,42 +556,34 @@ export default function GameScreen() {
     router.replace('/(tabs)/songs');
   }, [router]);
 
-  // ------ Render ------
   return (
     <View style={styles.container}>
-      <StatusBar style="light" hidden />
+      <StatusBar style="dark" hidden />
 
-      {/* Top bar */}
       <View
         style={[
           styles.topBar,
-          {
-            paddingTop: layout.topInset,
-            height: layout.topInset + layout.topBarHeight,
-          },
+          { paddingTop: layout.topInset, height: layout.topInset + layout.topBarHeight },
         ]}
       >
-        <Text style={styles.songTitle} numberOfLines={1}>
-          {'\u266A'} {gameSong.title}
-        </Text>
-        <View style={styles.topRight}>
-          <TouchableOpacity onPress={handlePause} style={styles.pauseButton}>
-            <Text style={styles.pauseIcon}>{'\u23F8'}</Text>
-            <Text style={styles.pauseButtonText}>{'\u6682\u505C'}</Text>
+        <View style={styles.topLeft}>
+          <TouchableOpacity onPress={handlePause} style={styles.pauseChip} activeOpacity={0.85}>
+            <Pause size={12} color={Palette.ink} />
           </TouchableOpacity>
+          <View>
+            <Text style={styles.songTitle} numberOfLines={1}>{gameSong.title}</Text>
+            <View style={styles.songTagsRow}>
+              <Pill bg={Palette.primarySoft} color={Palette.primary} size="xs">标准模式</Pill>
+              <Pill bg={Palette.chip} color={Palette.ink2} size="xs">1.0×</Pill>
+            </View>
+          </View>
+        </View>
+        <View style={styles.topRight}>
+          <Text style={styles.scoreLabel}>SCORE</Text>
           <Text style={styles.scoreText}>{score.toLocaleString()}</Text>
         </View>
       </View>
 
-      {/* Mode / Speed bar */}
-      <View style={[styles.modeBar, { height: layout.modeBarHeight }]}>
-        <View style={styles.modeTag}>
-          <Text style={styles.modeTagText}>{'\u6807\u51C6\u6A21\u5F0F'}</Text>
-        </View>
-        <Text style={styles.speedText}>1.0x</Text>
-      </View>
-
-      {/* Falling notes canvas */}
       <View style={[styles.canvasContainer, { width: windowWidth, height: layout.canvasHeight }]}>
         <View style={styles.canvas}>
           {lanePositions.map((x, index) => (
@@ -727,22 +595,9 @@ export default function GameScreen() {
           ))}
 
           {visibleNotes.map((note) => {
-            const color =
-              note.hand === 'left'
-                ? isBlackKey(note.note)
-                  ? '#3A73B5'
-                  : Colors.leftHand
-                : isBlackKey(note.note)
-                  ? '#3DA863'
-                  : Colors.rightHand;
-            const capColor =
-              note.hand === 'left'
-                ? '#9FC4F2'
-                : '#9AF0BC';
-            const noteCapHeight = note.isSustain
-              ? Math.min(20, Math.max(12, note.height * 0.16))
-              : note.height;
-
+            const isRight = note.hand === 'right';
+            const color = isRight ? Palette.primary : Palette.lilacInk;
+            const shadowColor = isRight ? 'rgba(255,0,122,0.32)' : 'rgba(90,63,214,0.32)';
             return (
               <View
                 key={note.id}
@@ -755,65 +610,38 @@ export default function GameScreen() {
                     width: note.width,
                     height: note.height,
                     opacity: note.opacity,
+                    backgroundColor: color,
+                    shadowColor,
                   },
                 ]}
-              >
-                <View
-                  style={[
-                    styles.noteBody,
-                    {
-                      backgroundColor: color,
-                      opacity: note.isSustain ? 0.8 : 1,
-                    },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.noteHead,
-                    {
-                      height: noteCapHeight,
-                      backgroundColor: note.isSustain ? capColor : color,
-                    },
-                  ]}
-                />
-              </View>
+              />
             );
           })}
 
           <View pointerEvents="none" style={styles.judgmentLine} />
+          <View pointerEvents="none" style={styles.judgmentGlow} />
         </View>
       </View>
 
-      {/* Judgment feedback area */}
       <View style={[styles.feedbackArea, { height: layout.feedbackHeight }]}>
         {hitEffects.length > 0 && (
-          <View style={styles.gradeContainer}>
-            {hitEffects.slice(-1).map((effect) => (
-              <Text
-                key={effect.id}
-                style={[styles.gradeText, { color: GRADE_COLORS[effect.grade] }]}
-              >
-                {effect.label ?? GRADE_LABELS[effect.grade]}
-              </Text>
-            ))}
-          </View>
+          <Text
+            style={[
+              styles.gradeText,
+              { color: GRADE_COLORS[hitEffects[hitEffects.length - 1].grade] },
+            ]}
+          >
+            {hitEffects[hitEffects.length - 1].label ?? GRADE_LABELS[hitEffects[hitEffects.length - 1].grade]}
+          </Text>
         )}
         {combo > 0 && (
-          <View style={styles.comboContainer}>
-            <Text
-              style={[
-                styles.comboText,
-                combo >= 10 && styles.comboTextHigh,
-                combo >= 50 && styles.comboTextSuper,
-              ]}
-            >
-              {combo}x COMBO{combo >= 10 ? ' \uD83D\uDD25' : ''}
-            </Text>
+          <View style={styles.comboRow}>
+            <Text style={styles.comboText}>{combo}× COMBO</Text>
+            {combo >= 10 && <Flame size={12} color={Palette.primary} />}
           </View>
         )}
       </View>
 
-      {/* Virtual keyboard */}
       <View style={[styles.keyboardContainer, { width: windowWidth, height: layout.keyboardHeight }]}>
         <PianoKeyboard
           startNote={keyboardConfig.startNote}
@@ -827,7 +655,6 @@ export default function GameScreen() {
         />
       </View>
 
-      {/* Progress bar */}
       <View
         style={[
           styles.progressContainer,
@@ -838,58 +665,48 @@ export default function GameScreen() {
         ]}
       >
         <View style={[styles.progressFill, { width: `${progress * 100}%` as unknown as number }]} />
-        <Text style={styles.progressText}>{Math.round(progress * 100)}%</Text>
       </View>
 
-      {/* Countdown overlay */}
       {gameStatus === 'countdown' && countdownValue > 0 && (
         <View style={styles.overlay}>
           <Text style={styles.countdownText}>{countdownValue}</Text>
-          <Text style={styles.countdownSubtext}>{'\u266A'} {'\u51C6\u5907...'}</Text>
+          <Text style={styles.countdownSubtext}>♪ 准备...</Text>
         </View>
       )}
 
-      {/* Pause overlay */}
       {gameStatus === 'paused' && (
         <View style={styles.overlay}>
           <View style={styles.pausePanel}>
-            <Text style={styles.pauseTitle}>{'\u5DF2\u6682\u505C'}</Text>
-
+            <Text style={styles.pauseTitle}>已暂停</Text>
             <TouchableOpacity style={styles.primaryButton} onPress={handleResume}>
-              <Text style={styles.primaryButtonText}>{'\u7EE7\u7EED\u5F39\u594F'}</Text>
+              <Text style={styles.primaryButtonText}>继续弹奏</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.secondaryButton} onPress={handleRestart}>
-              <Text style={styles.secondaryButtonText}>{'\u91CD\u65B0\u5F00\u59CB'}</Text>
+              <Text style={styles.secondaryButtonText}>重新开始</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.ghostButton} onPress={handleExit}>
-              <Text style={styles.ghostButtonText}>{'\u9000\u51FA'}</Text>
+              <Text style={styles.ghostButtonText}>退出</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      {/* Completed overlay */}
       {gameStatus === 'completed' && (
         <View style={styles.overlay}>
           <View style={styles.pausePanel}>
-            <Text style={styles.pauseTitle}>{'\u6F14\u594F\u5B8C\u6210'}</Text>
+            <Text style={styles.pauseTitle}>演奏完成</Text>
             <Text style={styles.finalScore}>{score.toLocaleString()}</Text>
             <Text style={styles.finalCombo}>
-              {'\u6700\u9AD8\u8FDE\u51FB'}: {scoreCalcRef.current.getMaxCombo()}x
+              最高连击: {scoreCalcRef.current.getMaxCombo()}×
             </Text>
-
             <TouchableOpacity style={styles.primaryButton} onPress={handleViewResults}>
-              <Text style={styles.primaryButtonText}>{'\u67E5\u770B\u7ED3\u679C'}</Text>
+              <Text style={styles.primaryButtonText}>查看结果</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.secondaryButton} onPress={handleRestart}>
-              <Text style={styles.secondaryButtonText}>{'\u518D\u6765\u4E00\u6B21'}</Text>
+              <Text style={styles.secondaryButtonText}>再来一次</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.ghostButton} onPress={handleExit}>
-              <Text style={styles.ghostButtonText}>{'\u8FD4\u56DE\u66F2\u5E93'}</Text>
+              <Text style={styles.ghostButtonText}>返回曲库</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -898,115 +715,76 @@ export default function GameScreen() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Palette.bg,
   },
-
-  // Top bar
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: 16,
   },
-  songTitle: {
-    fontSize: FontSize.body,
-    fontWeight: '600',
-    color: Colors.white,
-    flex: 1,
-  },
-  topRight: {
+  topLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: 10,
+    flex: 1,
   },
-  pauseButton: {
-    minHeight: 38,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    flexDirection: 'row',
+  pauseChip: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs,
   },
-  pauseIcon: {
-    fontSize: FontSize.body,
-    color: Colors.white,
+  songTitle: {
+    fontSize: 14,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.3,
   },
-  pauseButtonText: {
-    fontSize: FontSize.caption,
-    fontWeight: '600',
-    color: Colors.white,
+  songTagsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 2,
+  },
+  topRight: {
+    alignItems: 'flex-end',
+  },
+  scoreLabel: {
+    fontSize: 11,
+    color: Palette.ink3,
+    fontWeight: FontWeight.semibold,
+    letterSpacing: 1,
   },
   scoreText: {
-    fontSize: FontSize.h3,
-    fontWeight: 'bold',
-    color: Colors.white,
+    fontSize: 22,
+    fontWeight: FontWeight.heavy,
+    color: Palette.ink,
+    letterSpacing: -0.5,
     fontVariant: ['tabular-nums'],
-    minWidth: 60,
-    textAlign: 'right',
   },
-
-  // Mode bar
-  modeBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.base,
-    gap: Spacing.sm,
-  },
-  modeTag: {
-    backgroundColor: 'rgba(15,52,96,0.6)',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-  },
-  modeTagText: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-  },
-  speedText: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-  },
-
-  // Canvas
-  canvasContainer: {
-    overflow: 'hidden',
-  },
-  canvas: {
-    flex: 1,
-    position: 'relative',
-  },
+  canvasContainer: { overflow: 'hidden' },
+  canvas: { flex: 1, position: 'relative' },
   laneLine: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     width: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(14,14,16,0.04)',
   },
   noteBlock: {
     position: 'absolute',
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  noteBody: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 10,
-  },
-  noteHead: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 10,
+    borderRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 4,
   },
   judgmentLine: {
     position: 'absolute',
@@ -1014,139 +792,141 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 3,
-    backgroundColor: Colors.accent,
+    backgroundColor: Palette.primary,
+    borderRadius: 2,
   },
-
-  // Feedback area
+  judgmentGlow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: -10,
+    height: 30,
+    backgroundColor: Palette.primary,
+    opacity: 0.18,
+  },
   feedbackArea: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  gradeContainer: {
-    alignItems: 'center',
+    gap: 4,
   },
   gradeText: {
-    fontSize: FontSize.grade,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: FontWeight.heavy,
+    letterSpacing: -0.5,
   },
-  comboContainer: {
-    marginTop: 4,
+  comboRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   comboText: {
-    fontSize: FontSize.body,
-    color: Colors.white,
+    fontSize: 12,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.2,
   },
-  comboTextHigh: {
-    fontSize: FontSize.h3,
-    fontWeight: 'bold',
-    color: Colors.accent,
-  },
-  comboTextSuper: {
-    fontSize: FontSize.h2,
-    fontWeight: '900',
-    color: Colors.accent,
-  },
-
-  // Keyboard
-  keyboardContainer: {
-  },
-
-  // Progress
+  keyboardContainer: {},
   progressContainer: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: Palette.chip,
     flexDirection: 'row',
     alignItems: 'center',
   },
   progressFill: {
-    height: 3,
-    backgroundColor: Colors.accent,
+    height: 2,
+    backgroundColor: Palette.primary,
   },
-  progressText: {
-    fontSize: FontSize.small,
-    color: Colors.textSecondary,
-    marginLeft: Spacing.sm,
-    position: 'absolute',
-    right: Spacing.base,
-  },
-
-  // Countdown overlay
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(247,246,244,0.92)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100,
   },
   countdownText: {
-    fontSize: 72,
-    fontWeight: 'bold',
-    color: Colors.white,
+    fontSize: 96,
+    fontWeight: FontWeight.heavy,
+    color: Palette.primary,
+    letterSpacing: -3,
   },
   countdownSubtext: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
-    marginTop: Spacing.md,
+    fontSize: 14,
+    color: Palette.ink2,
+    marginTop: 12,
+    fontWeight: FontWeight.medium,
   },
-
-  // Pause panel
   pausePanel: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.xl,
-    width: 280,
+    backgroundColor: Palette.card,
+    borderRadius: 24,
+    padding: 28,
+    width: 320,
     alignItems: 'center',
-    gap: Spacing.base,
+    gap: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 30 },
+    shadowOpacity: 0.18,
+    shadowRadius: 60,
+    elevation: 8,
   },
   pauseTitle: {
-    fontSize: FontSize.h2,
-    fontWeight: 'bold',
-    color: Colors.white,
-    marginBottom: Spacing.md,
+    fontSize: 22,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.5,
+    marginBottom: 8,
   },
   primaryButton: {
-    backgroundColor: Colors.accent,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
+    backgroundColor: Palette.primary,
+    borderRadius: 27,
+    paddingVertical: 14,
     width: '100%',
     alignItems: 'center',
+    shadowColor: Palette.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 24,
+    elevation: 6,
   },
   primaryButtonText: {
-    fontSize: FontSize.body,
-    fontWeight: '600',
-    color: Colors.background,
+    fontSize: 15,
+    fontWeight: FontWeight.semibold,
+    color: '#fff',
   },
   secondaryButton: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
+    backgroundColor: Palette.card,
+    borderRadius: 27,
+    paddingVertical: 14,
     width: '100%',
     alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
   },
   secondaryButtonText: {
-    fontSize: FontSize.body,
-    color: Colors.white,
+    fontSize: 15,
+    fontWeight: FontWeight.semibold,
+    color: Palette.ink,
   },
   ghostButton: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
+    paddingVertical: 12,
     width: '100%',
     alignItems: 'center',
   },
   ghostButtonText: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
+    fontSize: 14,
+    color: Palette.ink2,
+    fontWeight: FontWeight.medium,
   },
-
-  // Completed
   finalScore: {
-    fontSize: FontSize.score,
-    fontWeight: 'bold',
-    color: Colors.accent,
+    fontSize: 48,
+    fontWeight: FontWeight.heavy,
+    color: Palette.primary,
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
   },
   finalCombo: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
+    fontSize: 13,
+    color: Palette.ink2,
+    fontWeight: FontWeight.medium,
   },
 });

@@ -12,15 +12,13 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { Wifi, Gamepad2, BookOpen } from '../src/components/Icons';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '../src/theme';
+import { Palette, FontWeight } from '../src/theme';
+import { Button, Pill, RadialBg } from '../src/components/common';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface OnboardingPage {
   id: string;
-  Icon: any;
   title: string;
   description: string;
 }
@@ -28,23 +26,64 @@ interface OnboardingPage {
 const PAGES: OnboardingPage[] = [
   {
     id: '1',
-    Icon: Wifi,
     title: '连接你的电钢琴',
-    description: '通过 USB 或蓝牙连接你的电钢琴，享受毫秒级精准识别',
+    description: '通过 USB 或蓝牙连接你的电钢琴，享受毫秒级精准识别。',
   },
   {
     id: '2',
-    Icon: Gamepad2,
-    title: '像玩游戏一样练琴',
-    description: '音符从上方落下，在正确时机弹奏，获得评分和连击奖励',
+    title: '像玩游戏\n一样练琴。',
+    description: '连接电钢琴，音符从天而降。在节拍上按下琴键，获得连击与评分。',
   },
   {
     id: '3',
-    Icon: BookOpen,
-    title: '系统化学习路径',
-    description: '从零基础到进阶，完整的钢琴学习课程体系',
+    title: '系统化\n学习路径。',
+    description: '从零基础到进阶，完整的钢琴学习课程体系陪你一步步成长。',
   },
 ];
+
+function FallingNotesIllustration() {
+  // schematic falling notes + judgment line + mini keyboard
+  const notes = [
+    { x: 12, y: 20, c: Palette.primary, h: 40 },
+    { x: 54, y: 50, c: Palette.lilacInk, h: 28 },
+    { x: 96, y: 10, c: Palette.mintInk, h: 56 },
+    { x: 140, y: 70, c: Palette.primary, h: 24 },
+    { x: 180, y: 30, c: Palette.lilacInk, h: 48 },
+  ];
+  return (
+    <View style={styles.illustration}>
+      <View style={[styles.cardLayerBack]} />
+      <View style={[styles.cardLayerFront]}>
+        <View style={styles.lane}>
+          {notes.map((n, i) => (
+            <View
+              key={i}
+              style={{
+                position: 'absolute',
+                left: n.x,
+                top: n.y,
+                width: 22,
+                height: n.h,
+                borderRadius: 6,
+                backgroundColor: n.c,
+                opacity: 0.9,
+              }}
+            />
+          ))}
+          <View style={styles.judgeLine} />
+          <View style={styles.keyRow}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <View key={i} style={styles.keyMini} />
+            ))}
+          </View>
+        </View>
+        <View style={{ marginTop: 16, alignItems: 'center' }}>
+          <Pill bg={Palette.primarySoft} color={Palette.primary}>Perfect ✦ 23x</Pill>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -56,7 +95,7 @@ export default function OnboardingScreen() {
       const offsetX = event.nativeEvent.contentOffset.x;
       setCurrentPage(Math.round(offsetX / SCREEN_WIDTH));
     },
-    []
+    [],
   );
 
   const handleSkip = useCallback(() => {
@@ -64,57 +103,69 @@ export default function OnboardingScreen() {
   }, [router]);
 
   const handleStart = useCallback(() => {
-    router.replace('/(tabs)');
-  }, [router]);
-
-  const goToPage = useCallback((index: number) => {
-    flatListRef.current?.scrollToIndex({ index, animated: true });
-  }, []);
+    if (currentPage === PAGES.length - 1) {
+      router.replace('/(tabs)');
+    } else {
+      flatListRef.current?.scrollToIndex({
+        index: currentPage + 1,
+        animated: true,
+      });
+    }
+  }, [router, currentPage]);
 
   const renderPage = useCallback(
     ({ item, index }: ListRenderItemInfo<OnboardingPage>) => {
       const isLast = index === PAGES.length - 1;
-      const IconComp = item.Icon;
-
       return (
         <View style={styles.page}>
-          {!isLast && (
-            <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-              <Text style={styles.skipText}>跳过</Text>
-            </TouchableOpacity>
-          )}
-
-          <View style={styles.iconContainer}>
-            <IconComp size={56} color={Colors.accent} strokeWidth={1.5} />
+          <View style={styles.skipRow}>
+            {!isLast && (
+              <TouchableOpacity hitSlop={12} onPress={handleSkip}>
+                <Text style={styles.skipText}>跳过</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.description}>{item.description}</Text>
-
-          <View style={styles.dotsContainer}>
-            {PAGES.map((_, i) => (
-              <TouchableOpacity
-                key={i}
-                onPress={() => goToPage(i)}
-                style={[styles.dot, i === currentPage && styles.dotActive]}
-              />
-            ))}
+          <View style={styles.heroArea}>
+            <FallingNotesIllustration />
           </View>
 
-          {isLast && (
-            <TouchableOpacity style={styles.startButton} onPress={handleStart}>
-              <Text style={styles.startButtonText}>开始探索</Text>
-            </TouchableOpacity>
-          )}
+          <View style={styles.bottom}>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.description}>{item.description}</Text>
+            <View style={styles.dotsContainer}>
+              {PAGES.map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    i === currentPage && styles.dotActive,
+                  ]}
+                />
+              ))}
+            </View>
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              onPress={handleStart}
+              trailing={<Text style={{ color: '#fff', fontSize: 17, fontWeight: FontWeight.semibold }}>→</Text>}
+            >
+              {isLast ? '开始探索' : '继续'}
+            </Button>
+          </View>
         </View>
       );
     },
-    [currentPage, handleSkip, handleStart, goToPage]
+    [currentPage, handleSkip, handleStart],
   );
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
+      <View style={styles.radial} pointerEvents="none">
+        <RadialBg from={Palette.primarySoft} to={Palette.bg} cx={0.5} cy={0} rx={1.2} ry={0.8} />
+      </View>
       <FlatList
         ref={flatListRef}
         data={PAGES}
@@ -134,84 +185,138 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bgPrimary,
+    backgroundColor: Palette.bg,
+  },
+  radial: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 480,
   },
   page: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: 24,
+    paddingTop: 70,
+    paddingBottom: 40,
   },
-  skipButton: {
-    position: 'absolute',
-    top: 60,
-    right: Spacing.lg,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
+  skipRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 12,
+    minHeight: 24,
   },
   skipText: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
+    fontSize: 14,
+    color: Palette.ink2,
+    fontWeight: FontWeight.medium,
   },
-  iconContainer: {
-    width: 180,
-    height: 180,
-    borderRadius: BorderRadius.xxl,
-    backgroundColor: Colors.bgSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    justifyContent: 'center',
+  heroArea: {
+    flex: 1,
     alignItems: 'center',
-    marginBottom: Spacing.xl,
+    justifyContent: 'center',
   },
+  illustration: {
+    width: 260,
+    height: 320,
+    position: 'relative',
+  },
+  cardLayerBack: {
+    position: 'absolute',
+    top: '10%',
+    left: '5%',
+    right: '5%',
+    bottom: '10%',
+    backgroundColor: Palette.card,
+    borderRadius: 48,
+    transform: [{ rotate: '-4deg' }],
+    shadowColor: Palette.primary,
+    shadowOffset: { width: 0, height: 30 },
+    shadowOpacity: 0.18,
+    shadowRadius: 60,
+    elevation: 6,
+  },
+  cardLayerFront: {
+    position: 'absolute',
+    top: '10%',
+    left: '5%',
+    right: '5%',
+    bottom: '10%',
+    backgroundColor: Palette.card,
+    borderRadius: 48,
+    transform: [{ rotate: '3deg' }],
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 30 },
+    shadowOpacity: 0.1,
+    shadowRadius: 60,
+    elevation: 6,
+  },
+  lane: {
+    height: 180,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  judgeLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 28,
+    height: 2,
+    backgroundColor: Palette.primary,
+    shadowColor: Palette.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+  },
+  keyRow: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    bottom: 4,
+    height: 20,
+    flexDirection: 'row',
+    gap: 1,
+  },
+  keyMini: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 3,
+  },
+  bottom: {},
   title: {
-    fontSize: FontSize.h1,
+    fontSize: 34,
     fontWeight: FontWeight.bold,
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: Spacing.base,
+    color: Palette.ink,
+    letterSpacing: -1.2,
+    lineHeight: 38,
   },
   description: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
-    textAlign: 'center',
+    fontSize: 15,
+    color: Palette.ink2,
+    marginTop: 14,
     lineHeight: 22,
-    marginBottom: Spacing.xl,
-    paddingHorizontal: Spacing.lg,
+    maxWidth: 280,
   },
   dotsContainer: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: Spacing.xl,
+    gap: 6,
+    marginTop: 28,
+    marginBottom: 20,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.bgElevated,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Palette.line,
   },
   dotActive: {
-    backgroundColor: Colors.accent,
     width: 24,
-  },
-  startButton: {
-    backgroundColor: Colors.accent,
-    borderRadius: BorderRadius.lg,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xxl,
-    width: 280,
-    alignItems: 'center',
-    height: 50,
-    justifyContent: 'center',
-  },
-  startButtonText: {
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.semibold,
-    color: Colors.bgPrimary,
+    backgroundColor: Palette.primary,
   },
 });

@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft } from '../Icons';
-import { Colors, Spacing, FontSize, FontWeight } from '../../theme';
+import { Chevron } from '../Icons';
+import { Palette, FontSize, FontWeight } from '../../theme';
 
 interface HeaderProps {
   title: string;
@@ -22,7 +22,7 @@ export default function Header({ title, showBack = false, rightAction }: HeaderP
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <ChevronLeft size={24} color={Colors.textPrimary} />
+            <Chevron size={14} color={Palette.ink} rotate={180} />
           </TouchableOpacity>
         )}
       </View>
@@ -39,8 +39,7 @@ const styles = StyleSheet.create({
     height: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgPrimary,
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: 16,
   },
   left: {
     width: 44,
@@ -53,14 +52,19 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     textAlign: 'center',
-    color: Colors.textPrimary,
+    color: Palette.ink,
     fontSize: FontSize.h3,
     fontWeight: FontWeight.semibold,
+    letterSpacing: -0.3,
   },
   backButton: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
   },
 });

@@ -4,12 +4,14 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../src/theme';
-import { Button, ProgressBar } from '../../src/components/common';
+import { Palette, FontWeight } from '../../src/theme';
+import { Button, Pill, RadialBg } from '../../src/components/common';
+import { Flame, StarIcon } from '../../src/components/Icons';
 import { mockUser, mockXpToNextLevel } from '../../src/utils/mockData';
 import type { GameResult, HandResultSummary } from '../../src/types/game';
 
@@ -18,16 +20,16 @@ const DEFAULT_RESULT: GameResult & {
   songTitle: string;
   artist: string;
 } = {
-  songId: 2,
-  songTitle: '欢乐颂',
-  artist: '贝多芬',
-  score: 8750,
-  stars: 2,
-  maxCombo: 45,
-  perfectCount: 38,
-  greatCount: 12,
-  goodCount: 5,
-  missCount: 3,
+  songId: 1,
+  songTitle: '小星星',
+  artist: '莫扎特',
+  score: 1280,
+  stars: 3,
+  maxCombo: 35,
+  perfectCount: 42,
+  greatCount: 18,
+  goodCount: 8,
+  missCount: 2,
   xpEarned: 150,
   accuracy: 92.0,
   leftHand: {
@@ -49,22 +51,16 @@ const DEFAULT_RESULT: GameResult & {
 };
 
 function getNumberParam(value: string | undefined, fallback: number) {
-  if (value === undefined) {
-    return fallback;
-  }
-
-  const parsedValue = Number(value);
-  return Number.isFinite(parsedValue) ? parsedValue : fallback;
+  if (value === undefined) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function getHandSummaryParam(
   value: string | undefined,
-  fallback: HandResultSummary
+  fallback: HandResultSummary,
 ): HandResultSummary {
-  if (!value) {
-    return fallback;
-  }
-
+  if (!value) return fallback;
   try {
     const parsed = JSON.parse(value) as Partial<HandResultSummary>;
     return {
@@ -81,10 +77,10 @@ function getHandSummaryParam(
 }
 
 function getRank(score: number): { letter: string; color: string } {
-  if (score >= 9500) return { letter: 'S', color: Colors.accent };
-  if (score >= 8000) return { letter: 'A', color: Colors.leftHand };
-  if (score >= 6000) return { letter: 'B', color: Colors.rightHand };
-  return { letter: 'C', color: Colors.textSecondary };
+  if (score >= 9500) return { letter: 'S', color: Palette.primary };
+  if (score >= 8000) return { letter: 'A', color: Palette.primary };
+  if (score >= 6000) return { letter: 'B', color: Palette.lilacInk };
+  return { letter: 'C', color: Palette.ink2 };
 }
 
 export default function GameResultScreen() {
@@ -128,399 +124,330 @@ export default function GameResultScreen() {
   const rank = getRank(result.score);
 
   const totalNotes =
-    result.perfectCount +
-    result.greatCount +
-    result.goodCount +
-    result.missCount;
+    result.perfectCount + result.greatCount + result.goodCount + result.missCount;
   const safeTotalNotes = Math.max(totalNotes, 1);
-
   const xpAfter = mockUser.xp + result.xpEarned;
 
+  const stats: Array<{ label: string; value: number; color: string; pct: number }> = [
+    { label: 'Perfect', value: result.perfectCount, color: Palette.primary, pct: result.perfectCount / safeTotalNotes },
+    { label: 'Great', value: result.greatCount, color: Palette.lilacInk, pct: result.greatCount / safeTotalNotes },
+    { label: 'Good', value: result.goodCount, color: Palette.mintInk, pct: result.goodCount / safeTotalNotes },
+    { label: 'Miss', value: result.missCount, color: Palette.coralInk, pct: result.missCount / safeTotalNotes },
+  ];
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Title */}
-        <Text style={styles.completedTitle}>演奏完成！</Text>
-        <Text style={styles.songInfo}>
-          {result.songTitle} - {result.artist}
-        </Text>
-
-        {/* Stars */}
-        <View style={styles.starsRow}>
-          {[1, 2, 3].map((star) => (
-            <Text
-              key={star}
-              style={[
-                styles.star,
-                star === 2 && styles.starCenter,
-                star <= result.stars
-                  ? styles.starFilled
-                  : styles.starEmpty,
-              ]}
-            >
-              ★
-            </Text>
-          ))}
-        </View>
-
-        {/* Score */}
-        <Text style={styles.scoreValue}>
-          {result.score.toLocaleString()}
-        </Text>
-        <Text style={[styles.rankLetter, { color: rank.color }]}>
-          {rank.letter}
-        </Text>
-
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <View style={styles.statBox}>
-            <Text style={[styles.statLabel, { color: Colors.perfect }]}>
-              Perfect
-            </Text>
-            <Text style={[styles.statNumber, { color: Colors.perfect }]}>
-              {result.perfectCount}
-            </Text>
-            <View
-              style={[
-                styles.statBar,
-                {
-                  backgroundColor: Colors.perfect,
-                  width: `${(result.perfectCount / safeTotalNotes) * 100}%`,
-                },
-              ]}
-            />
+    <View style={styles.root}>
+      <View style={styles.radial} pointerEvents="none">
+        <RadialBg from={Palette.primarySoft} to={Palette.bg} cx={0.5} cy={0} rx={1.0} ry={0.6} />
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={{ alignItems: 'center' }}>
+            <Pill bg={Palette.mint} color={Palette.mintInk}>✦ 演奏完成</Pill>
           </View>
-          <View style={styles.statBox}>
-            <Text style={[styles.statLabel, { color: Colors.great }]}>
-              Great
-            </Text>
-            <Text style={[styles.statNumber, { color: Colors.great }]}>
-              {result.greatCount}
-            </Text>
-            <View
-              style={[
-                styles.statBar,
-                {
-                  backgroundColor: Colors.great,
-                  width: `${(result.greatCount / safeTotalNotes) * 100}%`,
-                },
-              ]}
-            />
-          </View>
-          <View style={styles.statBox}>
-            <Text style={[styles.statLabel, { color: Colors.good }]}>
-              Good
-            </Text>
-            <Text style={[styles.statNumber, { color: Colors.good }]}>
-              {result.goodCount}
-            </Text>
-            <View
-              style={[
-                styles.statBar,
-                {
-                  backgroundColor: Colors.good,
-                  width: `${(result.goodCount / safeTotalNotes) * 100}%`,
-                },
-              ]}
-            />
-          </View>
-          <View style={styles.statBox}>
-            <Text style={[styles.statLabel, { color: Colors.miss }]}>
-              Miss
-            </Text>
-            <Text style={[styles.statNumber, { color: Colors.miss }]}>
-              {result.missCount}
-            </Text>
-            <View
-              style={[
-                styles.statBar,
-                {
-                  backgroundColor: Colors.miss,
-                  width: `${(result.missCount / safeTotalNotes) * 100}%`,
-                },
-              ]}
-            />
-          </View>
-        </View>
+          <Text style={styles.songTitle}>{result.songTitle}</Text>
+          <Text style={styles.songArtist}>{result.artist}</Text>
 
-        {/* Max Combo */}
-        <View style={styles.comboCard}>
-          <Text style={styles.comboLabel}>🔥 最大连击</Text>
-          <Text style={styles.comboValue}>{result.maxCombo}x</Text>
-        </View>
+          <View style={styles.starsRow}>
+            {[0, 1, 2].map((i) => {
+              const filled = i < result.stars;
+              const isCenter = i === 1;
+              const size = isCenter ? 68 : 54;
+              const iconSize = isCenter ? 42 : 32;
+              return (
+                <View
+                  key={i}
+                  style={[
+                    styles.starCircle,
+                    {
+                      width: size,
+                      height: size,
+                      borderRadius: size / 2,
+                      transform: [{ translateY: isCenter ? -10 : 0 }],
+                    },
+                  ]}
+                >
+                  <StarIcon
+                    size={iconSize}
+                    color={filled ? Palette.primary : Palette.chip}
+                    fill
+                  />
+                </View>
+              );
+            })}
+          </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>左右手表现</Text>
-        </View>
-        <View style={styles.handCards}>
-          <View style={styles.handCard}>
-            <View style={styles.handCardHeader}>
-              <Text style={styles.handCardTitle}>左手</Text>
-              <Text style={[styles.handAccuracy, { color: Colors.leftHand }]}>
-                {result.leftHand.accuracy.toFixed(1)}%
-              </Text>
+          <Text style={styles.scoreValue}>{result.score.toLocaleString()}</Text>
+          <View style={styles.rankPill}>
+            <Text style={styles.rankPillLabel}>评级</Text>
+            <Text style={[styles.rankPillLetter, { color: rank.color }]}>{rank.letter}</Text>
+          </View>
+
+          <View style={styles.statsGrid}>
+            {stats.map((s) => (
+              <View key={s.label} style={styles.statBox}>
+                <View style={styles.statBoxHeader}>
+                  <Text style={styles.statLabel}>{s.label}</Text>
+                  <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
+                </View>
+                <View style={styles.statBarTrack}>
+                  <View
+                    style={[
+                      styles.statBarFill,
+                      { backgroundColor: s.color, width: `${Math.max(s.pct * 100, 2)}%` },
+                    ]}
+                  />
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.comboCard}>
+            <Flame size={18} color={Palette.primary} />
+            <Text style={styles.comboLabel}>最大连击</Text>
+            <Text style={styles.comboValue}>{result.maxCombo}</Text>
+          </View>
+
+          <View style={styles.xpCard}>
+            <View style={styles.xpHeaderRow}>
+              <Text style={styles.xpHeaderLabel}>经验奖励</Text>
+              <Text style={styles.xpHeaderValue}>+{result.xpEarned} XP</Text>
             </View>
-            <Text style={styles.handMeta}>音符 {result.leftHand.totalNotes}</Text>
-            <Text style={styles.handDetail}>
-              P {result.leftHand.perfectCount} / G {result.leftHand.greatCount}
-            </Text>
-            <Text style={styles.handDetail}>
-              Good {result.leftHand.goodCount} / Miss {result.leftHand.missCount}
-            </Text>
-          </View>
-          <View style={styles.handCard}>
-            <View style={styles.handCardHeader}>
-              <Text style={styles.handCardTitle}>右手</Text>
-              <Text style={[styles.handAccuracy, { color: Colors.rightHand }]}>
-                {result.rightHand.accuracy.toFixed(1)}%
-              </Text>
-            </View>
-            <Text style={styles.handMeta}>音符 {result.rightHand.totalNotes}</Text>
-            <Text style={styles.handDetail}>
-              P {result.rightHand.perfectCount} / G {result.rightHand.greatCount}
-            </Text>
-            <Text style={styles.handDetail}>
-              Good {result.rightHand.goodCount} / Miss {result.rightHand.missCount}
-            </Text>
-          </View>
-        </View>
-
-        {/* XP Earned */}
-        <View style={styles.xpCard}>
-          <Text style={styles.xpEarned}>+{result.xpEarned} XP</Text>
-          <View style={styles.xpLevelRow}>
-            <Text style={styles.xpLevelText}>Lv.{mockUser.level}</Text>
-            <View style={styles.xpBarWrapper}>
-              <ProgressBar
-                progress={xpAfter / mockXpToNextLevel}
-                height={8}
-                color={Colors.leftHand}
+            <View style={styles.xpBarTrack}>
+              <View
+                style={[
+                  styles.xpBarFill,
+                  { width: `${Math.min(xpAfter / mockXpToNextLevel, 1) * 100}%` },
+                ]}
               />
             </View>
-            <Text style={styles.xpLevelText}>Lv.{mockUser.level + 1}</Text>
+            <Text style={styles.xpFoot}>
+              Lv.{mockUser.level} · {xpAfter} / {mockXpToNextLevel} XP
+            </Text>
           </View>
-          <Text style={styles.xpProgress}>
-            {xpAfter} / {mockXpToNextLevel} XP
-          </Text>
-        </View>
 
-        {/* Action Buttons */}
-        <View style={styles.buttonGroup}>
-          <Button
-            title="重试"
-            variant="secondary"
-            onPress={() => router.replace(`/game/${result.songId}`)}
-            style={styles.retryButton}
-          />
-          <Button
-            title="返回曲库"
-            variant="ghost"
+          <View style={styles.actions}>
+            <View style={{ flex: 1 }}>
+              <Button variant="secondary" block onPress={() => router.replace(`/game/${result.songId}`)}>
+                重试
+              </Button>
+            </View>
+            <View style={{ flex: 1.3 }}>
+              <Button
+                variant="primary"
+                block
+                onPress={() => router.replace('/(tabs)/songs')}
+                trailing={<Text style={{ color: '#fff', fontSize: 15, fontWeight: FontWeight.semibold }}>→</Text>}
+              >
+                下一曲
+              </Button>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.backLink}
             onPress={() => router.replace('/(tabs)/songs')}
-            style={styles.backButton}
-          />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          >
+            <Text style={styles.backLinkText}>返回曲库</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
+  root: { flex: 1, backgroundColor: Palette.bg },
+  radial: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 380,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.base,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xl,
-    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 30,
+    paddingBottom: 40,
   },
-  completedTitle: {
-    fontSize: FontSize.h2,
-    fontWeight: '600',
-    color: Colors.white,
+  songTitle: {
+    marginTop: 14,
+    fontSize: 24,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.6,
     textAlign: 'center',
   },
-  songInfo: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
+  songArtist: {
+    fontSize: 13,
+    color: Palette.ink2,
+    marginTop: 2,
     textAlign: 'center',
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.lg,
   },
   starsRow: {
+    marginTop: 22,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
-    gap: Spacing.md,
+    gap: 14,
   },
-  star: {
-    fontSize: 48,
-  },
-  starCenter: {
-    fontSize: 56,
-  },
-  starFilled: {
-    color: Colors.accent,
-  },
-  starEmpty: {
-    color: Colors.textTertiary,
+  starCircle: {
+    backgroundColor: Palette.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Palette.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 4,
   },
   scoreValue: {
-    fontSize: FontSize.score,
-    fontWeight: '700',
-    color: Colors.white,
+    marginTop: 28,
+    fontSize: 60,
+    fontWeight: FontWeight.heavy,
+    color: Palette.ink,
+    letterSpacing: -2,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
-  rankLetter: {
-    fontSize: FontSize.h1,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.lg,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-    width: '100%',
-    marginBottom: Spacing.base,
-  },
-  statBox: {
-    width: '48%',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.xs,
-  },
-  statLabel: {
-    fontSize: FontSize.caption,
-    fontWeight: '600',
-    marginBottom: Spacing.xs,
-  },
-  statNumber: {
-    fontSize: FontSize.h3,
-    fontWeight: '700',
-    marginBottom: Spacing.sm,
-  },
-  statBar: {
-    height: 4,
-    borderRadius: 2,
-    minWidth: 4,
-  },
-  comboCard: {
+  rankPill: {
+    alignSelf: 'center',
+    marginTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    width: '100%',
-    marginBottom: Spacing.base,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Palette.ink,
   },
-  comboLabel: {
-    fontSize: FontSize.body,
-    color: Colors.white,
+  rankPillLabel: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 0.5,
   },
-  comboValue: {
-    fontSize: FontSize.h3,
-    fontWeight: '700',
-    color: Colors.accent,
+  rankPillLetter: {
+    fontSize: 17,
+    fontWeight: FontWeight.heavy,
   },
-  sectionHeader: {
-    width: '100%',
-    marginBottom: Spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: FontSize.body,
-    fontWeight: '600',
-    color: Colors.white,
-  },
-  handCards: {
-    width: '100%',
+  statsGrid: {
+    marginTop: 26,
     flexDirection: 'row',
-    gap: Spacing.sm,
-    marginBottom: Spacing.base,
+    flexWrap: 'wrap',
+    gap: 10,
   },
-  handCard: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
+  statBox: {
+    flexBasis: '48.5%',
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 16,
+    padding: 12,
   },
-  handCardHeader: {
+  statBoxHeader: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    marginBottom: Spacing.xs,
   },
-  handCardTitle: {
-    fontSize: FontSize.body,
-    fontWeight: '600',
-    color: Colors.white,
+  statLabel: {
+    fontSize: 11,
+    color: Palette.ink2,
+    fontWeight: FontWeight.semibold,
+    letterSpacing: 0.3,
   },
-  handAccuracy: {
-    fontSize: FontSize.h3,
-    fontWeight: '700',
+  statValue: {
+    fontSize: 20,
+    fontWeight: FontWeight.heavy,
+    fontVariant: ['tabular-nums'],
   },
-  handMeta: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
+  statBarTrack: {
+    marginTop: 6,
+    height: 4,
+    backgroundColor: Palette.chip,
+    borderRadius: 2,
+    overflow: 'hidden',
   },
-  handDetail: {
-    fontSize: FontSize.caption,
-    color: Colors.white,
-    lineHeight: 18,
+  statBarFill: {
+    height: '100%',
+    borderRadius: 2,
   },
-  xpCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
-  },
-  xpEarned: {
-    fontSize: FontSize.h3,
-    fontWeight: '700',
-    color: Colors.accent,
-    marginBottom: Spacing.md,
-  },
-  xpLevelRow: {
+  comboCard: {
+    marginTop: 12,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 16,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    gap: Spacing.sm,
+    gap: 12,
   },
-  xpBarWrapper: {
-    flex: 1,
+  comboLabel: {
+    fontSize: 13,
+    color: Palette.ink2,
+    fontWeight: FontWeight.medium,
   },
-  xpLevelText: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+  comboValue: {
+    marginLeft: 'auto',
+    fontSize: 18,
+    fontWeight: FontWeight.heavy,
+    color: Palette.ink,
+    fontVariant: ['tabular-nums'],
   },
-  xpProgress: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    marginTop: Spacing.sm,
+  xpCard: {
+    marginTop: 10,
+    backgroundColor: Palette.ink,
+    borderRadius: 16,
+    padding: 14,
   },
-  buttonGroup: {
-    width: '100%',
-    gap: Spacing.md,
+  xpHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  retryButton: {
-    width: '100%',
+  xpHeaderLabel: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
   },
-  backButton: {
-    width: '100%',
+  xpHeaderValue: {
+    fontSize: 18,
+    fontWeight: FontWeight.heavy,
+    color: Palette.primary,
+  },
+  xpBarTrack: {
+    marginTop: 10,
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  xpBarFill: {
+    height: '100%',
+    backgroundColor: Palette.primary,
+    borderRadius: 3,
+  },
+  xpFoot: {
+    marginTop: 6,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.5)',
+  },
+  actions: {
+    marginTop: 20,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  backLink: {
+    marginTop: 14,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  backLinkText: {
+    fontSize: 13,
+    color: Palette.ink2,
+    fontWeight: FontWeight.medium,
   },
 });

@@ -1,32 +1,38 @@
 import React from 'react';
 import { View, ScrollView, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Spacing } from '../../theme';
+import { Palette, Spacing } from '../../theme';
 
 interface ScreenContainerProps {
   children: React.ReactNode;
   scrollable?: boolean;
   style?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
   padded?: boolean;
+  bg?: string;
+  paddingBottom?: number;
 }
 
 export default function ScreenContainer({
   children,
   scrollable = false,
   style,
+  contentStyle,
   padded = true,
+  bg = Palette.bg,
+  paddingBottom = Spacing.xxl,
 }: ScreenContainerProps) {
   const insets = useSafeAreaInsets();
-  const horizontalPadding = padded ? Spacing.lg : 0;
+  const horizontalPadding = padded ? 20 : 0;
 
   if (scrollable) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }, style]}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
-            { paddingHorizontal: horizontalPadding, paddingBottom: Spacing.xxl },
-            style,
+            { paddingHorizontal: horizontalPadding, paddingBottom: paddingBottom + insets.bottom },
+            contentStyle,
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -41,7 +47,12 @@ export default function ScreenContainer({
     <View
       style={[
         styles.container,
-        { paddingTop: insets.top, paddingBottom: insets.bottom, paddingHorizontal: horizontalPadding },
+        {
+          backgroundColor: bg,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingHorizontal: horizontalPadding,
+        },
         style,
       ]}
     >
@@ -53,7 +64,6 @@ export default function ScreenContainer({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.bgPrimary,
   },
   scrollView: {
     flex: 1,

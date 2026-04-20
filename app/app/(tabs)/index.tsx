@@ -9,9 +9,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Flame, ChevronRight, Play, Wifi, Music } from '../../src/components/Icons';
-import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../src/theme';
-import { ProgressBar } from '../../src/components/common';
+import { Flame, Chevron, Play, WifiIcon } from '../../src/components/Icons';
+import { Palette, FontWeight } from '../../src/theme';
+import { ProgressBar, RadialBg } from '../../src/components/common';
 import {
   mockUser,
   mockSongs,
@@ -22,8 +22,7 @@ import {
   getGreeting,
   formatDuration,
 } from '../../src/utils/mockData';
-
-const SONG_CARD_WIDTH = 140;
+import { songHue } from '../../src/utils/songColors';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -33,411 +32,454 @@ export default function HomeScreen() {
   const todayBarIndex = todayIndex === 0 ? 6 : todayIndex - 1;
   const maxMinutes = Math.max(...mockWeeklyPractice, 1);
   const totalWeekMinutes = mockWeeklyPractice.reduce((a, b) => a + b, 0);
+  const goalPct = Math.min(
+    1,
+    mockTodayPracticeMinutes / mockDailyGoalMinutes,
+  );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View entering={FadeInDown.duration(400).delay(0)}>
-          <Text style={styles.greeting}>
-            {getGreeting()}，{mockUser.username}
-          </Text>
-          <View style={styles.streakRow}>
-            <Flame size={14} color={Colors.warning} />
-            <Text style={styles.streak}>连续练习 {mockStreak} 天</Text>
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.duration(400).delay(50)}>
-          <TouchableOpacity
-            style={styles.midiBar}
-            onPress={() => router.push('/midi/connect')}
-            activeOpacity={0.7}
-          >
-            <Wifi size={14} color={Colors.textTertiary} />
-            <Text style={styles.midiText}>未连接设备</Text>
-            <ChevronRight size={16} color={Colors.textTertiary} />
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-          <TouchableOpacity
-            style={styles.courseCard}
-            onPress={() => router.push('/course/1')}
-            activeOpacity={0.85}
-          >
-            <View style={styles.courseCardInner}>
-              <View style={styles.progressCircle}>
-                <Text style={styles.progressCircleText}>30%</Text>
-              </View>
-              <View style={styles.courseInfo}>
-                <Text style={styles.courseLabel}>当前课程</Text>
-                <Text style={styles.courseTitle}>Level 1: 钢琴启蒙</Text>
-                <Text style={styles.courseProgress}>3/10 课完成</Text>
-                <ProgressBar progress={0.3} height={4} />
-              </View>
+    <View style={styles.root}>
+      <View style={styles.radialWrap} pointerEvents="none">
+        <RadialBg from={Palette.primarySoft} to={Palette.bg} cx={0.3} cy={0} rx={0.9} ry={0.7} />
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View entering={FadeInDown.duration(400).delay(0)}>
+            <Text style={styles.greetingSmall}>{getGreeting()}</Text>
+            <Text style={styles.greetingBig}>{mockUser.username}</Text>
+            <View style={styles.streakRow}>
+              <Flame size={14} color={Palette.primary} />
+              <Text style={styles.streak}>连续练习 {mockStreak} 天</Text>
             </View>
-            <View style={styles.continueButton}>
-              <Play size={16} color={Colors.bgPrimary} fill={Colors.bgPrimary} />
-              <Text style={styles.continueButtonText}>继续学习</Text>
-            </View>
-          </TouchableOpacity>
-        </Animated.View>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.duration(400).delay(150)}>
-          <View style={styles.goalCard}>
-            <View style={styles.goalHeader}>
-              <Text style={styles.goalTitle}>今日目标</Text>
-              <Text style={styles.goalPercent}>
-                {Math.round(
-                  (mockTodayPracticeMinutes / mockDailyGoalMinutes) * 100
-                )}%
-              </Text>
-            </View>
-            <ProgressBar
-              progress={mockTodayPracticeMinutes / mockDailyGoalMinutes}
-              height={4}
-            />
-            <Text style={styles.goalText}>
-              {mockTodayPracticeMinutes} / {mockDailyGoalMinutes} 分钟
-            </Text>
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.duration(400).delay(200)}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>快速开始</Text>
+          <Animated.View entering={FadeInDown.duration(400).delay(50)}>
             <TouchableOpacity
-              onPress={() => router.push('/(tabs)/songs')}
-              hitSlop={8}
+              style={styles.midiBar}
+              onPress={() => router.push('/midi/connect')}
+              activeOpacity={0.85}
             >
-              <Text style={styles.sectionMore}>查看全部</Text>
+              <View style={styles.midiIconWrap}>
+                <WifiIcon size={14} color={Palette.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.midiTitle}>未连接设备</Text>
+                <Text style={styles.midiSubtitle}>点击配对你的电钢琴</Text>
+              </View>
+              <Chevron size={14} color={Palette.ink3} />
             </TouchableOpacity>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.songListContent}
-            style={styles.songList}
-          >
-            {quickPlaySongs.map((song) => (
-              <TouchableOpacity
-                key={song.id}
-                style={styles.songCard}
-                onPress={() => router.push(`/game/${song.id}`)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.songCover}>
-                  <Music size={24} color={Colors.textTertiary} />
-                </View>
-                <View style={styles.songCardBody}>
-                  <Text style={styles.songTitle} numberOfLines={1}>
-                    {song.title}
-                  </Text>
-                  <Text style={styles.songArtist} numberOfLines={1}>
-                    {song.artist}
-                  </Text>
-                  <Text style={styles.songDuration}>
-                    {formatDuration(song.duration)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </Animated.View>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.duration(400).delay(250)}>
-          <View style={styles.weeklyCard}>
-            <View style={styles.weeklyHeader}>
-              <Text style={styles.weeklyTitle}>本周练习</Text>
-              <Text style={styles.weeklyTotal}>
-                {(totalWeekMinutes / 60).toFixed(1)} 小时
+          <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+            <TouchableOpacity
+              style={styles.courseCard}
+              onPress={() => router.push('/course/1')}
+              activeOpacity={0.92}
+            >
+              <View style={styles.courseGlow} pointerEvents="none">
+                <RadialBg from={Palette.primary} to="transparent" cx={1} cy={0} rx={0.7} ry={0.7} />
+              </View>
+              <Text style={styles.courseLabel}>当前课程</Text>
+              <Text style={styles.courseTitle}>Level 1 · 钢琴启蒙</Text>
+              <Text style={styles.courseProgress}>3/10 课完成</Text>
+              <View style={{ marginTop: 16 }}>
+                <ProgressBar
+                  progress={0.3}
+                  height={6}
+                  color={Palette.primary}
+                  backgroundColor="rgba(255,255,255,0.14)"
+                />
+              </View>
+              <View style={styles.courseFoot}>
+                <Text style={styles.courseNext}>下一课：右手 do re mi</Text>
+                <View style={styles.courseCta}>
+                  <Play size={11} color="#fff" />
+                  <Text style={styles.courseCtaText}>继续</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.duration(400).delay(150)}>
+            <View style={styles.goalCard}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.cardTitle}>今日目标</Text>
+                <Text style={styles.goalPercent}>{Math.round(goalPct * 100)}%</Text>
+              </View>
+              <View style={{ marginTop: 10 }}>
+                <ProgressBar
+                  progress={goalPct}
+                  height={8}
+                  gradient={[Palette.primary, Palette.lilacInk]}
+                  backgroundColor={Palette.chip}
+                />
+              </View>
+              <Text style={styles.goalText}>
+                {mockTodayPracticeMinutes} / {mockDailyGoalMinutes} 分钟
               </Text>
             </View>
-            <View style={styles.barsContainer}>
-              {mockWeeklyPractice.map((minutes, index) => {
-                const isToday = index === todayBarIndex;
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.duration(400).delay(200)}>
+            <View style={[styles.rowBetween, { marginTop: 22, marginBottom: 12 }]}>
+              <Text style={styles.sectionTitle}>快速开始</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/songs')} hitSlop={8}>
+                <Text style={styles.sectionMore}>全部 →</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hScrollContent}
+              style={styles.hScroll}
+            >
+              {quickPlaySongs.map((song) => {
+                const { hue, ink } = songHue(song.id);
                 return (
-                  <View key={index} style={styles.barWrapper}>
-                    <View style={styles.barTrack}>
-                      <View
-                        style={[
-                          styles.bar,
-                          {
-                            height: `${Math.max((minutes / maxMinutes) * 100, 4)}%`,
-                            backgroundColor: isToday
-                              ? Colors.accent
-                              : Colors.bgElevated,
-                          },
-                        ]}
-                      />
+                  <TouchableOpacity
+                    key={song.id}
+                    style={styles.songCard}
+                    onPress={() => router.push(`/game/${song.id}`)}
+                    activeOpacity={0.9}
+                  >
+                    <View style={[styles.songCover, { backgroundColor: hue }]}>
+                      <View style={styles.playDot}>
+                        <Play size={12} color={Palette.ink} />
+                      </View>
+                      <Text style={[styles.songDiffStars, { color: ink }]}>
+                        {stars(song.difficulty)}
+                      </Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.barLabel,
-                        isToday && styles.barLabelActive,
-                      ]}
-                    >
-                      {weekDays[index]}
-                    </Text>
-                  </View>
+                    <View style={styles.songBody}>
+                      <Text style={styles.songTitle} numberOfLines={1}>
+                        {song.title}
+                      </Text>
+                      <Text style={styles.songMeta} numberOfLines={1}>
+                        {song.artist} · {formatDuration(song.duration)}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 );
               })}
+            </ScrollView>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.duration(400).delay(250)}>
+            <View style={styles.weeklyCard}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.cardTitle}>本周练习</Text>
+                <Text style={styles.weeklyTotal}>
+                  {(totalWeekMinutes / 60).toFixed(1)} 小时
+                </Text>
+              </View>
+              <View style={styles.barsContainer}>
+                {mockWeeklyPractice.map((minutes, index) => {
+                  const isToday = index === todayBarIndex;
+                  return (
+                    <View key={index} style={styles.barWrapper}>
+                      <View style={styles.barTrack}>
+                        <View
+                          style={[
+                            styles.bar,
+                            {
+                              height: `${Math.max((minutes / maxMinutes) * 100, 4)}%`,
+                              backgroundColor: isToday ? Palette.primary : Palette.chip,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.barLabel,
+                          isToday && styles.barLabelActive,
+                        ]}
+                      >
+                        {weekDays[index]}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
             </View>
-          </View>
-        </Animated.View>
-      </ScrollView>
-    </SafeAreaView>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
+const stars = (d: number) => '●'.repeat(d) + '○'.repeat(Math.max(0, 5 - d));
+
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: Colors.bgPrimary,
+    backgroundColor: Palette.bg,
   },
-  scrollView: {
-    flex: 1,
+  radialWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 320,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xxl,
+    paddingHorizontal: 20,
+    paddingBottom: 120,
   },
-  greeting: {
-    fontSize: FontSize.h1,
+  greetingSmall: {
+    fontSize: 13,
+    color: Palette.ink2,
+    fontWeight: FontWeight.medium,
+    marginTop: 12,
+  },
+  greetingBig: {
+    fontSize: 30,
     fontWeight: FontWeight.bold,
-    color: Colors.textPrimary,
-    marginTop: Spacing.lg,
+    color: Palette.ink,
+    letterSpacing: -1,
+    marginTop: 2,
   },
   streakRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.lg,
+    gap: 6,
+    marginTop: 6,
   },
   streak: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    fontSize: 13,
+    color: Palette.ink2,
+    fontWeight: FontWeight.medium,
   },
   midiBar: {
+    marginTop: 18,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Spacing.base,
-    height: 40,
-    marginBottom: Spacing.lg,
+    gap: 10,
   },
-  midiText: {
-    flex: 1,
-    fontSize: FontSize.caption,
-    color: Colors.textTertiary,
+  midiIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: Palette.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  midiTitle: {
+    fontSize: 13,
+    fontWeight: FontWeight.semibold,
+    color: Palette.ink,
+  },
+  midiSubtitle: {
+    fontSize: 11,
+    color: Palette.ink3,
+    marginTop: 1,
   },
   courseCard: {
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.base,
-    marginBottom: Spacing.lg,
+    marginTop: 14,
+    backgroundColor: Palette.ink,
+    borderRadius: 24,
+    padding: 20,
+    overflow: 'hidden',
   },
-  courseCardInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.base,
-  },
-  progressCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 2,
-    borderColor: Colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Spacing.base,
-  },
-  progressCircleText: {
-    fontSize: FontSize.caption,
-    fontWeight: FontWeight.bold,
-    color: Colors.accent,
-  },
-  courseInfo: {
-    flex: 1,
-    gap: Spacing.xs,
+  courseGlow: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 180,
+    height: 180,
+    opacity: 0.5,
   },
   courseLabel: {
-    fontSize: FontSize.small,
-    color: Colors.textTertiary,
-    textTransform: 'uppercase',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.55)',
     letterSpacing: 1,
+    fontWeight: FontWeight.semibold,
   },
   courseTitle: {
-    fontSize: FontSize.h3,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
+    fontSize: 22,
+    fontWeight: FontWeight.bold,
+    color: '#fff',
+    letterSpacing: -0.5,
+    marginTop: 4,
   },
   courseProgress: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xs,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 4,
   },
-  continueButton: {
+  courseFoot: {
+    marginTop: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  courseNext: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
+    flex: 1,
+    marginRight: 8,
+  },
+  courseCta: {
+    height: 38,
+    paddingHorizontal: 16,
+    borderRadius: 19,
+    backgroundColor: Palette.primary,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.accent,
-    borderRadius: BorderRadius.lg,
-    height: 44,
+    gap: 6,
   },
-  continueButtonText: {
-    fontSize: FontSize.body,
+  courseCtaText: {
+    color: '#fff',
+    fontSize: 13,
     fontWeight: FontWeight.semibold,
-    color: Colors.bgPrimary,
   },
   goalCard: {
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.base,
-    marginBottom: Spacing.lg,
+    marginTop: 14,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 20,
+    padding: 16,
   },
-  goalHeader: {
+  rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
   },
-  goalTitle: {
-    fontSize: FontSize.body,
+  cardTitle: {
+    fontSize: 14,
     fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
+    color: Palette.ink,
   },
   goalPercent: {
-    fontSize: FontSize.caption,
-    fontWeight: FontWeight.semibold,
-    color: Colors.accent,
+    fontSize: 13,
+    fontWeight: FontWeight.bold,
+    color: Palette.primary,
   },
   goalText: {
-    fontSize: FontSize.caption,
-    color: Colors.textTertiary,
-    marginTop: Spacing.sm,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.base,
+    marginTop: 8,
+    fontSize: 12,
+    color: Palette.ink3,
   },
   sectionTitle: {
-    fontSize: FontSize.h3,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.3,
   },
   sectionMore: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    fontSize: 13,
+    color: Palette.ink2,
+    fontWeight: FontWeight.medium,
   },
-  songList: {
-    marginHorizontal: -Spacing.lg,
-    marginBottom: Spacing.lg,
+  hScroll: {
+    marginHorizontal: -20,
   },
-  songListContent: {
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.md,
+  hScrollContent: {
+    paddingHorizontal: 20,
+    gap: 12,
   },
   songCard: {
-    width: SONG_CARD_WIDTH,
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    width: 150,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 18,
     overflow: 'hidden',
   },
   songCover: {
-    width: SONG_CARD_WIDTH,
-    height: 90,
-    backgroundColor: Colors.bgTertiary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    height: 96,
+    padding: 10,
+    justifyContent: 'flex-end',
   },
-  songCardBody: {
-    padding: Spacing.md,
-    gap: 2,
+  playDot: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  songDiffStars: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 0.5,
+  },
+  songBody: {
+    padding: 12,
   },
   songTitle: {
-    fontSize: FontSize.caption,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.2,
   },
-  songArtist: {
-    fontSize: FontSize.small,
-    color: Colors.textTertiary,
-  },
-  songDuration: {
-    fontSize: FontSize.small,
-    color: Colors.textTertiary,
-    marginTop: Spacing.xs,
+  songMeta: {
+    fontSize: 11,
+    color: Palette.ink3,
+    marginTop: 2,
   },
   weeklyCard: {
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.base,
-  },
-  weeklyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.base,
-  },
-  weeklyTitle: {
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
+    marginTop: 18,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 20,
+    padding: 16,
   },
   weeklyTotal: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    fontSize: 13,
+    color: Palette.ink2,
   },
   barsContainer: {
+    marginTop: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    height: 80,
+    height: 72,
+    gap: 4,
   },
   barWrapper: {
     flex: 1,
     alignItems: 'center',
     height: '100%',
+    gap: 6,
   },
   barTrack: {
     flex: 1,
-    width: 20,
-    borderRadius: BorderRadius.sm,
+    width: '100%',
     justifyContent: 'flex-end',
   },
   bar: {
-    width: 20,
-    borderRadius: BorderRadius.sm,
+    width: '100%',
+    borderRadius: 6,
     minHeight: 3,
   },
   barLabel: {
-    fontSize: FontSize.small,
-    color: Colors.textTertiary,
-    marginTop: Spacing.xs,
+    fontSize: 10,
+    color: Palette.ink3,
+    fontWeight: FontWeight.medium,
   },
   barLabelActive: {
-    color: Colors.accent,
-    fontWeight: FontWeight.semibold,
+    color: Palette.primary,
+    fontWeight: FontWeight.bold,
   },
 });

@@ -9,342 +9,312 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
-  User,
-  Settings,
-  ChevronRight,
-  LogOut,
-  Award,
-  Clock,
-  Music,
+  IconUser,
+  SettingsIcon,
+  Chevron,
+  LogOutIcon,
   Flame,
-  Star,
-  Target,
-  Zap,
-  Trophy,
-  Heart,
-  Headphones,
 } from '../../src/components/Icons';
-import { Colors, Spacing, FontSize, FontWeight, BorderRadius } from '../../src/theme';
-import { ProgressBar } from '../../src/components/common';
+import { Palette, FontWeight } from '../../src/theme';
+import { ProgressBar, Pill, RadialBg } from '../../src/components/common';
 import {
   mockUser,
   mockXpToNextLevel,
   mockAchievements,
 } from '../../src/utils/mockData';
 
-const ACHIEVEMENT_ICONS: Record<string, any> = {
-  'first-note': Zap,
-  'streak-7': Flame,
-  'songs-10': Music,
-  'perfect': Star,
-  'level-5': Trophy,
-  'practice-100': Clock,
-  'combo-50': Target,
-  'all-stars': Award,
-  'marathon': Heart,
-};
-
 export default function ProfileScreen() {
   const xpProgress = mockUser.xp / mockXpToNextLevel;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View entering={FadeInDown.duration(400).delay(0)}>
-          <View style={styles.headerCard}>
-            <View style={styles.avatarContainer}>
+    <View style={styles.root}>
+      <View style={styles.radial} pointerEvents="none">
+        <RadialBg from={Palette.primarySoft} to={Palette.bg} cx={0.5} cy={0} rx={0.9} ry={0.6} />
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View entering={FadeInDown.duration(400).delay(0)}>
+            <View style={styles.headerCard}>
               <View style={styles.avatar}>
-                <User size={28} color={Colors.textSecondary} />
+                <IconUser size={36} color={Palette.ink2} />
               </View>
-              <View style={styles.levelRing} />
+              <Text style={styles.username}>{mockUser.username}</Text>
+              <Pill bg={Palette.primarySoft} color={Palette.primary} size="sm" style={{ marginTop: 8 }}>
+                Lv.{mockUser.level} · 业余琴手
+              </Pill>
+              <View style={styles.xpRow}>
+                <ProgressBar
+                  progress={xpProgress}
+                  height={6}
+                  gradient={[Palette.primary, Palette.lilacInk]}
+                  backgroundColor={Palette.chip}
+                />
+                <Text style={styles.xpText}>
+                  {mockUser.xp} / {mockXpToNextLevel} XP
+                </Text>
+              </View>
             </View>
-            <Text style={styles.username}>{mockUser.username}</Text>
-            <View style={styles.levelBadge}>
-              <Text style={styles.levelText}>
-                Lv.{mockUser.level} 业余琴手
-              </Text>
-            </View>
-            <View style={styles.xpRow}>
-              <ProgressBar
-                progress={xpProgress}
-                height={4}
-                color={Colors.accent}
-              />
-              <Text style={styles.xpText}>
-                {mockUser.xp} / {mockXpToNextLevel} XP
-              </Text>
-            </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.duration(400).delay(50)}>
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Clock size={16} color={Colors.accent} />
-              <Text style={styles.statValue}>12.5</Text>
-              <Text style={styles.statLabel}>总时长(h)</Text>
+          <Animated.View entering={FadeInDown.duration(400).delay(60)}>
+            <View style={styles.statsRow}>
+              <StatCard label="总时长" value="12.5h" tint={Palette.primary} />
+              <StatCard label="完成曲目" value="23" tint={Palette.lilacInk} />
+              <StatCard label="最长连续" value="15" tint={Palette.mintInk} />
             </View>
-            <View style={styles.statCard}>
-              <Music size={16} color={Colors.success} />
-              <Text style={styles.statValue}>23</Text>
-              <Text style={styles.statLabel}>完成曲目</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Flame size={16} color={Colors.warning} />
-              <Text style={styles.statValue}>15</Text>
-              <Text style={styles.statLabel}>最长连续</Text>
-            </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-          <View style={styles.achievementCard}>
-            <View style={styles.achievementHeader}>
-              <Award size={18} color={Colors.textPrimary} />
-              <Text style={styles.achievementTitle}>成就</Text>
-            </View>
-            <View style={styles.achievementGrid}>
-              {mockAchievements.map((achievement) => {
-                const isUnlocked = !!achievement.unlockedAt;
-                const IconComponent =
-                  ACHIEVEMENT_ICONS[achievement.id] || Headphones;
-                return (
-                  <View key={achievement.id} style={styles.achievementItem}>
-                    <View
-                      style={[
-                        styles.achievementCircle,
-                        isUnlocked
-                          ? styles.achievementUnlocked
-                          : styles.achievementLocked,
-                      ]}
-                    >
-                      <IconComponent
-                        size={20}
-                        color={
-                          isUnlocked ? Colors.accent : Colors.textTertiary
-                        }
-                      />
+          <Animated.View entering={FadeInDown.duration(400).delay(120)}>
+            <View style={styles.achievementCard}>
+              <View style={styles.achHeader}>
+                <Text style={styles.achTitle}>成就</Text>
+                <Text style={styles.achCount}>
+                  {mockAchievements.filter((a) => !!a.unlockedAt).length} / {mockAchievements.length}
+                </Text>
+              </View>
+              <View style={styles.achGrid}>
+                {mockAchievements.map((a) => {
+                  const unlocked = !!a.unlockedAt;
+                  return (
+                    <View key={a.id} style={styles.achItem}>
+                      <View
+                        style={[
+                          styles.achCircle,
+                          {
+                            backgroundColor: unlocked ? Palette.primarySoft : Palette.chip,
+                            opacity: unlocked ? 1 : 0.55,
+                          },
+                        ]}
+                      >
+                        <Text style={{ fontSize: 22 }}>{a.icon}</Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.achName,
+                          { color: unlocked ? Palette.ink : Palette.ink3 },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {a.name}
+                      </Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.achievementName,
-                        !isUnlocked && styles.achievementNameLocked,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {achievement.name}
-                    </Text>
-                  </View>
-                );
-              })}
+                  );
+                })}
+              </View>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
 
-        <Animated.View entering={FadeInDown.duration(400).delay(150)}>
-          <TouchableOpacity style={styles.settingsRow} activeOpacity={0.85}>
-            <View style={styles.settingsLeft}>
-              <Settings size={18} color={Colors.textSecondary} />
-              <Text style={styles.settingsText}>设置</Text>
+          <Animated.View entering={FadeInDown.duration(400).delay(180)}>
+            <View style={styles.streakCard}>
+              <Flame size={20} color={Palette.primary} />
+              <Text style={styles.streakText}>今日已完成练习目标</Text>
             </View>
-            <ChevronRight size={18} color={Colors.textTertiary} />
-          </TouchableOpacity>
+          </Animated.View>
 
-          <TouchableOpacity style={styles.logoutButton} activeOpacity={0.85}>
-            <LogOut size={16} color={Colors.error} />
-            <Text style={styles.logoutText}>退出登录</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </ScrollView>
-    </SafeAreaView>
+          <Animated.View entering={FadeInDown.duration(400).delay(220)}>
+            <TouchableOpacity style={styles.row} activeOpacity={0.85}>
+              <View style={styles.rowLeft}>
+                <SettingsIcon size={18} color={Palette.ink2} />
+                <Text style={styles.rowText}>设置</Text>
+              </View>
+              <Chevron size={14} color={Palette.ink3} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.logoutButton} activeOpacity={0.85}>
+              <LogOutIcon size={16} color={Palette.coralInk} />
+              <Text style={styles.logoutText}>退出登录</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+function StatCard({ label, value, tint }: { label: string; value: string; tint: string }) {
+  return (
+    <View style={styles.statCard}>
+      <Text style={[styles.statValue, { color: tint }]}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bgPrimary,
+  root: { flex: 1, backgroundColor: Palette.bg },
+  radial: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 280,
   },
-  scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xxl,
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 120,
+    paddingTop: 16,
   },
   headerCard: {
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.lg,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 24,
+    padding: 22,
     alignItems: 'center',
-    marginBottom: Spacing.base,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: Spacing.md,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: Colors.bgTertiary,
-    justifyContent: 'center',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: Palette.chip,
     alignItems: 'center',
-  },
-  levelRing: {
-    position: 'absolute',
-    top: -3,
-    left: -3,
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    borderWidth: 2,
-    borderColor: Colors.accent,
+    justifyContent: 'center',
   },
   username: {
-    fontSize: FontSize.h2,
+    fontSize: 22,
     fontWeight: FontWeight.bold,
-    color: Colors.textPrimary,
-  },
-  levelBadge: {
-    backgroundColor: Colors.bgTertiary,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-    marginTop: Spacing.sm,
-  },
-  levelText: {
-    fontSize: FontSize.caption,
-    fontWeight: FontWeight.medium,
-    color: Colors.accent,
+    color: Palette.ink,
+    letterSpacing: -0.5,
+    marginTop: 12,
   },
   xpRow: {
     width: '100%',
-    marginTop: Spacing.base,
-    gap: Spacing.xs,
+    marginTop: 18,
+    gap: 6,
   },
   xpText: {
-    fontSize: FontSize.small,
-    color: Colors.textTertiary,
+    fontSize: 11,
+    color: Palette.ink3,
     textAlign: 'right',
   },
   statsRow: {
+    marginTop: 14,
     flexDirection: 'row',
-    gap: Spacing.sm,
-    marginBottom: Spacing.base,
+    gap: 10,
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    alignItems: 'center',
-    gap: Spacing.xs,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 18,
+    padding: 14,
+    alignItems: 'flex-start',
+    gap: 4,
   },
   statValue: {
-    fontSize: FontSize.h2,
-    fontWeight: FontWeight.bold,
-    color: Colors.textPrimary,
+    fontSize: 22,
+    fontWeight: FontWeight.heavy,
+    letterSpacing: -0.5,
   },
   statLabel: {
-    fontSize: FontSize.small,
-    color: Colors.textTertiary,
+    fontSize: 11,
+    color: Palette.ink3,
+    fontWeight: FontWeight.medium,
   },
   achievementCard: {
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.base,
-    marginBottom: Spacing.base,
+    marginTop: 14,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 24,
+    padding: 16,
   },
-  achievementHeader: {
+  achHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.base,
+    marginBottom: 14,
   },
-  achievementTitle: {
-    fontSize: FontSize.h3,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
+  achTitle: {
+    fontSize: 16,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.3,
   },
-  achievementGrid: {
+  achCount: {
+    fontSize: 12,
+    color: Palette.ink3,
+    fontWeight: FontWeight.medium,
+  },
+  achGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.md,
-    justifyContent: 'space-between',
   },
-  achievementItem: {
-    width: '30%',
+  achItem: {
+    width: '33.333%',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
+    paddingVertical: 8,
   },
-  achievementCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  achCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    marginBottom: Spacing.xs,
+    marginBottom: 8,
   },
-  achievementUnlocked: {
-    borderColor: Colors.accent,
-    backgroundColor: Colors.bgTertiary,
-  },
-  achievementLocked: {
-    borderColor: Colors.border,
-    backgroundColor: Colors.bgSecondary,
-    opacity: 0.5,
-  },
-  achievementName: {
-    fontSize: FontSize.small,
-    color: Colors.textPrimary,
+  achName: {
+    fontSize: 11,
+    fontWeight: FontWeight.semibold,
     textAlign: 'center',
+    letterSpacing: -0.1,
   },
-  achievementNameLocked: {
-    color: Colors.textTertiary,
+  streakCard: {
+    marginTop: 14,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 18,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  settingsRow: {
+  streakText: {
+    fontSize: 13,
+    color: Palette.ink2,
+    fontWeight: FontWeight.medium,
+  },
+  row: {
+    marginTop: 14,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 18,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.base,
-    marginBottom: Spacing.base,
   },
-  settingsLeft: {
+  rowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: 12,
   },
-  settingsText: {
-    fontSize: FontSize.body,
-    color: Colors.textPrimary,
+  rowText: {
+    fontSize: 14,
+    color: Palette.ink,
+    fontWeight: FontWeight.semibold,
   },
   logoutButton: {
+    marginTop: 12,
+    backgroundColor: 'transparent',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 18,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.base,
+    gap: 8,
   },
   logoutText: {
-    fontSize: FontSize.body,
-    color: Colors.error,
-    fontWeight: FontWeight.medium,
+    fontSize: 14,
+    color: Palette.coralInk,
+    fontWeight: FontWeight.semibold,
   },
 });

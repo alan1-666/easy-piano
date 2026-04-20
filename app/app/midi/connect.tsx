@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Button, Card, Header, ScreenContainer } from '../../src/components/common';
+import { Button, Pill } from '../../src/components/common';
+import { Chevron, Lock } from '../../src/components/Icons';
 import { useMIDI } from '../../src/hooks/useMIDI';
 import { initializeNativeMIDIBridge } from '../../src/services/midi/nativeMIDI';
-import { BorderRadius, Colors, FontSize, FontWeight, Shadows, Spacing } from '../../src/theme';
+import { Palette, FontWeight } from '../../src/theme';
 import type { MIDIDevice } from '../../src/types/midi';
 
 function formatDeviceType(device: MIDIDevice) {
@@ -16,6 +18,49 @@ function formatNoteName(note: number) {
   const octave = Math.floor(note / 12) - 1;
   return `${notes[note % 12]}${octave}`;
 }
+
+const WHITE_KEY_LABELS = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E'];
+const BLACK_KEY_INDICES = [0, 1, 3, 4, 5, 7, 8];
+
+function TopBar({ onBack }: { onBack: () => void }) {
+  return (
+    <View style={topStyles.row}>
+      <TouchableOpacity onPress={onBack} style={topStyles.btn} activeOpacity={0.85}>
+        <Chevron size={14} color={Palette.ink} rotate={180} />
+      </TouchableOpacity>
+      <Text style={topStyles.title}>MIDI 连接</Text>
+      <View style={{ width: 36 }} />
+    </View>
+  );
+}
+
+const topStyles = StyleSheet.create({
+  row: {
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  btn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    marginRight: 36,
+    fontSize: 15,
+    fontWeight: FontWeight.semibold,
+    color: Palette.ink,
+    letterSpacing: -0.3,
+  },
+});
 
 export default function MIDIConnectScreen() {
   const router = useRouter();
@@ -36,11 +81,8 @@ export default function MIDIConnectScreen() {
   }, []);
 
   const lastNoteLabel = useMemo(() => {
-    if (!lastNoteEvent) {
-      return null;
-    }
-
-    return `${formatNoteName(lastNoteEvent.note)}  力度: ${lastNoteEvent.velocity}`;
+    if (!lastNoteEvent) return null;
+    return { name: formatNoteName(lastNoteEvent.note), velocity: lastNoteEvent.velocity };
   }, [lastNoteEvent]);
 
   const handleRefreshDevices = useCallback(() => {
@@ -55,7 +97,7 @@ export default function MIDIConnectScreen() {
     (device: MIDIDevice) => {
       void connectDevice(device.id);
     },
-    [connectDevice]
+    [connectDevice],
   );
 
   const handleDisconnect = useCallback(() => {
@@ -69,412 +111,440 @@ export default function MIDIConnectScreen() {
   const isBusy = connectionStatus === 'scanning' || connectionStatus === 'connecting';
 
   if (connectionStatus === 'connected' && connectedDevice) {
-    return (
-      <ScreenContainer scrollable>
-        <Header title="MIDI 连接" showBack />
+    const lastKeyName = lastNoteLabel?.name.replace(/\d+$/, '') ?? null;
 
-        <View style={styles.connectedCard}>
-          <View style={styles.connectedIndicator} />
-          <View style={styles.connectedBody}>
-            <Text style={styles.connectedName}>{connectedDevice.name}</Text>
-            <Text style={styles.connectedType}>{formatDeviceType(connectedDevice)}</Text>
-            <View style={styles.connectedStatusRow}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>已连接，可直接进入游戏</Text>
+    return (
+      <SafeAreaView style={styles.root} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <TopBar onBack={() => router.back()} />
+
+          <View style={styles.connectedCard}>
+            <View style={styles.connectedRow}>
+              <View style={styles.deviceIcon}>
+                <Text style={{ fontSize: 22 }}>🎹</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={styles.connectedDotRow}>
+                  <View style={styles.greenDot} />
+                  <Text style={styles.connectedTag}>CONNECTED</Text>
+                </View>
+                <Text style={styles.connectedName}>{connectedDevice.name}</Text>
+                <Text style={styles.connectedMeta}>
+                  {formatDeviceType(connectedDevice)} · 延迟 12ms
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        <View style={styles.sectionDivider}>
-          <View style={styles.sectionLine} />
           <Text style={styles.sectionLabel}>信号测试</Text>
-          <View style={styles.sectionLine} />
-        </View>
+          <View style={styles.signalCard}>
+            <Text style={styles.signalPrompt}>按下电钢琴上任意键</Text>
+            <View style={styles.miniKeyboard}>
+              {WHITE_KEY_LABELS.map((label, i) => {
+                const hit = lastKeyName === label && i === WHITE_KEY_LABELS.indexOf(label);
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      styles.whiteKey,
+                      hit && { backgroundColor: Palette.primary },
+                    ]}
+                  >
+                    {hit && <Text style={styles.whiteKeyHitLabel}>{label}</Text>}
+                  </View>
+                );
+              })}
+              {BLACK_KEY_INDICES.map((i, k) => (
+                <View
+                  key={k}
+                  style={[
+                    styles.blackKey,
+                    {
+                      left: `${((i + 1) / WHITE_KEY_LABELS.length) * 100 - 3.2}%`,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
 
-        <Card style={styles.noteCard}>
-          <Text style={styles.notePrompt}>请按电钢琴任意琴键</Text>
-          <View style={styles.keyboardPreview}>
-            {['C', 'D', 'E', 'F', 'G', 'A', 'B'].map((note) => (
-              <View key={note} style={styles.whiteKey}>
-                <Text style={styles.keyLabel}>{note}</Text>
-              </View>
-            ))}
+            <View style={styles.lastNote}>
+              <Text style={styles.lastNoteLabel}>最后接收</Text>
+              {lastNoteLabel ? (
+                <>
+                  <Text style={styles.lastNoteValue}>{lastNoteLabel.name}</Text>
+                  <Text style={styles.lastNoteVelocity}>力度 {lastNoteLabel.velocity}</Text>
+                </>
+              ) : (
+                <Text style={styles.lastNoteHint}>等待 noteOn / noteOff…</Text>
+              )}
+            </View>
           </View>
-          {lastNoteLabel ? (
-            <Text style={styles.noteValue}>最后接收: {lastNoteLabel}</Text>
-          ) : (
-            <Text style={styles.noteHint}>接收到的 `noteOn / noteOff` 会实时显示在这里。</Text>
-          )}
-        </Card>
 
-        <View style={styles.qualityCard}>
-          <Text style={styles.qualityText}>输入链路: 已建立</Text>
-          <Text style={styles.qualitySep}>|</Text>
-          <Text style={styles.qualityText}>
-            模式: {connectedDevice.type === 'bluetooth' ? '无线' : '有线'}
-          </Text>
-        </View>
+          <View style={{ marginTop: 20 }}>
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              onPress={handleStartPlaying}
+              trailing={<Text style={{ color: '#fff', fontSize: 17, fontWeight: FontWeight.semibold }}>→</Text>}
+            >
+              开始弹琴
+            </Button>
+          </View>
 
-        <Button title="开始弹琴" onPress={handleStartPlaying} style={styles.actionButton} />
-        <Button
-          title="断开连接"
-          variant="secondary"
-          onPress={handleDisconnect}
-          style={styles.disconnectButton}
-        />
-      </ScreenContainer>
+          <View style={{ marginTop: 10 }}>
+            <Button variant="secondary" block onPress={handleDisconnect}>
+              断开连接
+            </Button>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScreenContainer scrollable>
-      <Header title="MIDI 连接" showBack />
+    <SafeAreaView style={styles.root} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <TopBar onBack={() => router.back()} />
 
-      <View style={styles.illustration}>
-        <Text style={styles.illustrationEmoji}>🎹</Text>
-      </View>
-
-      <Text style={styles.heroTitle}>连接设备开始弹琴</Text>
-      <Text style={styles.heroSubtitle}>支持 USB MIDI 和蓝牙 MIDI，推荐优先使用 USB。</Text>
-
-      {isNativeSupported === false && (
-        <Card style={styles.supportCard}>
-          <Text style={styles.supportTitle}>当前环境不支持原生 MIDI</Text>
-          <Text style={styles.supportText}>
-            需要使用真机上的 Development Build 才能完整验证电钢琴接入。模拟器里可以继续看页面流程，但系统外设事件不会完整到位。
-          </Text>
-        </Card>
-      )}
-
-      <View style={styles.cardRow}>
-        <Card style={styles.methodCard} onPress={handleRefreshDevices}>
-          <Text style={styles.methodIcon}>🔌</Text>
-          <Text style={styles.methodTitle}>USB 连接</Text>
-          <Text style={styles.methodDesc}>接线后刷新设备</Text>
-        </Card>
-
-        <Card style={styles.methodCard} onPress={handleRefreshDevices}>
-          <Text style={styles.methodIcon}>📶</Text>
-          <Text style={styles.methodTitle}>蓝牙连接</Text>
-          <Text style={styles.methodDesc}>完成系统配对后刷新</Text>
-        </Card>
-      </View>
-
-      <View style={styles.tipCard}>
-        <Text style={styles.tipText}>USB 延迟更低，课堂和游戏判定建议优先走有线接入。</Text>
-      </View>
-
-      <View style={styles.sectionDivider}>
-        <View style={styles.sectionLine} />
-        <Text style={styles.sectionLabel}>{isBusy ? '刷新中的设备' : '可用设备'}</Text>
-        <View style={styles.sectionLine} />
-      </View>
-
-      {isBusy && (
-        <View style={styles.scanArea}>
-          <ActivityIndicator size="large" color={Colors.accent} />
-          <Text style={styles.scanText}>
-            {connectionStatus === 'connecting' ? '正在连接设备...' : '正在刷新系统 MIDI 设备列表...'}
-          </Text>
+        <View style={styles.heroCard}>
+          <Text style={{ fontSize: 56 }}>🎹</Text>
+          <Text style={styles.heroTitle}>连接设备开始弹琴</Text>
+          <Text style={styles.heroSubtitle}>支持 USB 与蓝牙 MIDI · 优先 USB</Text>
         </View>
-      )}
 
-      {availableDevices.length > 0 ? (
-        availableDevices.map((device) => (
-          <Card key={device.id} style={styles.deviceCard}>
-            <View style={styles.deviceRow}>
-              <View style={styles.deviceInfo}>
-                <Text style={styles.deviceName}>{device.name}</Text>
-                <Text style={styles.deviceMeta}>
-                  {formatDeviceType(device)}
-                  {device.manufacturer ? ` · ${device.manufacturer}` : ''}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.connectBtn}
-                onPress={() => handleConnectDevice(device)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.connectBtnText}>连接</Text>
-              </TouchableOpacity>
+        {isNativeSupported === false && (
+          <View style={styles.warnCard}>
+            <Lock size={14} color={Palette.sunInk} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.warnTitle}>当前环境不支持原生 MIDI</Text>
+              <Text style={styles.warnText}>
+                需要真机 Development Build 才能完整接入电钢琴；模拟器可看流程，外设事件不会到达。
+              </Text>
             </View>
-          </Card>
-        ))
-      ) : (
-        <Card style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>还没有发现可用设备</Text>
-          <Text style={styles.emptyText}>
-            USB 设备接入后点一次刷新；蓝牙设备请先在系统设置里完成配对，再回来刷新列表。
-          </Text>
-        </Card>
-      )}
+          </View>
+        )}
 
-      {isBusy ? (
-        <Button
-          title={connectionStatus === 'connecting' ? '返回设备列表' : '停止刷新'}
-          variant="secondary"
-          onPress={handleStopScan}
-          style={styles.actionButton}
-        />
-      ) : (
-        <Button title="刷新设备列表" onPress={handleRefreshDevices} style={styles.actionButton} />
-      )}
-    </ScreenContainer>
+        <Text style={styles.sectionLabel}>{isBusy ? '刷新中的设备' : '其他设备'}</Text>
+
+        {isBusy && (
+          <View style={styles.scanArea}>
+            <ActivityIndicator size="small" color={Palette.primary} />
+            <Text style={styles.scanText}>
+              {connectionStatus === 'connecting' ? '正在连接设备…' : '正在刷新系统 MIDI 设备列表…'}
+            </Text>
+          </View>
+        )}
+
+        {availableDevices.length > 0 ? (
+          <View style={styles.deviceList}>
+            {availableDevices.map((device, i, arr) => (
+              <View
+                key={device.id}
+                style={[
+                  styles.deviceRow,
+                  i < arr.length - 1 && styles.deviceRowDivider,
+                ]}
+              >
+                <View style={styles.deviceIconSm}>
+                  <Text style={{ fontSize: 18 }}>🎹</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.deviceName}>{device.name}</Text>
+                  <Text style={styles.deviceMeta}>
+                    {formatDeviceType(device)}
+                    {device.manufacturer ? ` · ${device.manufacturer}` : ''}
+                  </Text>
+                </View>
+                <Button size="sm" variant="secondary" onPress={() => handleConnectDevice(device)}>
+                  连接
+                </Button>
+              </View>
+            ))}
+          </View>
+        ) : (
+          !isBusy && (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>还没有发现可用设备</Text>
+              <Text style={styles.emptyText}>
+                USB 设备插入后点一次刷新；蓝牙设备先去系统设置完成配对再回来刷新。
+              </Text>
+            </View>
+          )
+        )}
+
+        <View style={{ marginTop: 20 }}>
+          {isBusy ? (
+            <Button
+              variant="secondary"
+              block
+              onPress={handleStopScan}
+            >
+              {connectionStatus === 'connecting' ? '返回设备列表' : '停止刷新'}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              onPress={handleRefreshDevices}
+            >
+              刷新设备列表
+            </Button>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  illustration: {
-    alignItems: 'center',
-    marginTop: Spacing.xl,
-    marginBottom: Spacing.lg,
+  root: { flex: 1, backgroundColor: Palette.bg },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
-  illustrationEmoji: {
-    fontSize: 80,
+  heroCard: {
+    marginTop: 14,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    gap: 10,
   },
   heroTitle: {
-    fontSize: FontSize.h2,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: Spacing.sm,
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.3,
   },
   heroSubtitle: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: Spacing.lg,
-    lineHeight: 22,
+    fontSize: 13,
+    color: Palette.ink2,
   },
-  supportCard: {
-    marginBottom: Spacing.base,
-    backgroundColor: Colors.bgTertiary,
-  },
-  supportTitle: {
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.semibold,
-    color: Colors.warning,
-    marginBottom: Spacing.sm,
-  },
-  supportText: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-  },
-  cardRow: {
+  warnCard: {
+    marginTop: 14,
+    backgroundColor: Palette.sun,
+    borderRadius: 16,
+    padding: 14,
     flexDirection: 'row',
-    gap: Spacing.base,
-    marginBottom: Spacing.base,
+    gap: 10,
+    alignItems: 'flex-start',
   },
-  methodCard: {
-    flex: 1,
-    alignItems: 'center',
-    gap: Spacing.sm,
+  warnTitle: {
+    fontSize: 13,
+    fontWeight: FontWeight.bold,
+    color: Palette.sunInk,
   },
-  methodIcon: {
-    fontSize: 32,
-  },
-  methodTitle: {
-    fontSize: FontSize.body,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
-  },
-  methodDesc: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  tipCard: {
-    padding: Spacing.base,
-    backgroundColor: Colors.bgTertiary,
-    borderRadius: BorderRadius.xl,
-    marginBottom: Spacing.lg,
-  },
-  tipText: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-  },
-  sectionDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.base,
-  },
-  sectionLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.border,
+  warnText: {
+    fontSize: 12,
+    color: Palette.sunInk,
+    lineHeight: 18,
+    marginTop: 2,
   },
   sectionLabel: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
+    marginTop: 22,
+    marginBottom: 10,
+    fontSize: 11,
+    color: Palette.ink3,
+    fontWeight: FontWeight.bold,
     letterSpacing: 1,
   },
   scanArea: {
+    paddingVertical: 24,
     alignItems: 'center',
-    paddingVertical: Spacing.lg,
+    gap: 12,
   },
   scanText: {
-    marginTop: Spacing.base,
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
+    fontSize: 13,
+    color: Palette.ink2,
   },
-  deviceCard: {
-    marginBottom: Spacing.base,
+  deviceList: {
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   deviceRow: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.base,
+    gap: 12,
   },
-  deviceInfo: {
-    flex: 1,
-    gap: Spacing.xs,
+  deviceRowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Palette.line,
+  },
+  deviceIconSm: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: Palette.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deviceName: {
-    fontSize: FontSize.body,
+    fontSize: 14,
     fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
+    color: Palette.ink,
   },
   deviceMeta: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-  },
-  connectBtn: {
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.accent,
-  },
-  connectBtnText: {
-    fontSize: FontSize.caption,
-    fontWeight: FontWeight.semibold,
-    color: Colors.bgPrimary,
+    fontSize: 11,
+    color: Palette.ink3,
+    marginTop: 2,
   },
   emptyCard: {
-    marginBottom: Spacing.base,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 20,
+    padding: 18,
     alignItems: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.bgTertiary,
+    gap: 6,
   },
   emptyTitle: {
-    fontSize: FontSize.body,
+    fontSize: 14,
     fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
+    color: Palette.ink,
   },
   emptyText: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    fontSize: 12,
+    color: Palette.ink2,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
-  actionButton: {
-    marginTop: Spacing.base,
-  },
+
+  // Connected state
   connectedCard: {
-    backgroundColor: Colors.bgSecondary,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.base,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    flexDirection: 'row',
-    gap: Spacing.base,
-    ...Shadows.card,
+    marginTop: 14,
+    backgroundColor: Palette.ink,
+    borderRadius: 24,
+    padding: 18,
+    overflow: 'hidden',
   },
-  connectedIndicator: {
-    width: 10,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.success,
-  },
-  connectedBody: {
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  connectedName: {
-    fontSize: FontSize.h3,
-    fontWeight: FontWeight.semibold,
-    color: Colors.textPrimary,
-  },
-  connectedType: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-  },
-  connectedStatusRow: {
+  connectedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
+    gap: 12,
   },
-  statusDot: {
+  deviceIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connectedDotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  greenDot: {
     width: 8,
     height: 8,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.success,
+    borderRadius: 4,
+    backgroundColor: Palette.mint,
+    shadowColor: Palette.mint,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
   },
-  statusText: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+  connectedTag: {
+    fontSize: 11,
+    color: Palette.mint,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 1,
   },
-  noteCard: {
-    gap: Spacing.base,
-    marginBottom: Spacing.base,
+  connectedName: {
+    fontSize: 17,
+    fontWeight: FontWeight.bold,
+    color: '#fff',
+    marginTop: 3,
+    letterSpacing: -0.3,
   },
-  notePrompt: {
-    fontSize: FontSize.body,
-    color: Colors.textPrimary,
-    fontWeight: FontWeight.semibold,
-    textAlign: 'center',
+  connectedMeta: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
+    marginTop: 2,
   },
-  keyboardPreview: {
+  signalCard: {
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 20,
+    padding: 16,
+  },
+  signalPrompt: {
+    fontSize: 13,
+    color: Palette.ink2,
+  },
+  miniKeyboard: {
+    marginTop: 14,
+    height: 110,
     flexDirection: 'row',
-    gap: Spacing.xs,
+    backgroundColor: Palette.chip,
+    borderRadius: 12,
+    padding: 4,
+    gap: 2,
+    position: 'relative',
   },
   whiteKey: {
     flex: 1,
-    height: 68,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.white,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+    borderBottomLeftRadius: 6,
+    borderBottomRightRadius: 6,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingBottom: Spacing.sm,
+    paddingBottom: 6,
   },
-  keyLabel: {
-    fontSize: FontSize.small,
-    color: Colors.bgPrimary,
-    fontWeight: FontWeight.medium,
+  whiteKeyHitLabel: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: FontWeight.heavy,
   },
-  noteValue: {
-    fontSize: FontSize.body,
-    color: Colors.accent,
-    fontWeight: FontWeight.semibold,
-    textAlign: 'center',
+  blackKey: {
+    position: 'absolute',
+    top: 4,
+    width: '6.4%',
+    height: 66,
+    backgroundColor: Palette.ink,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
   },
-  noteHint: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  qualityCard: {
+  lastNote: {
+    marginTop: 12,
+    backgroundColor: Palette.primarySoft,
+    borderRadius: 12,
+    padding: 10,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.base,
-    marginBottom: Spacing.base,
+    gap: 10,
   },
-  qualityText: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+  lastNoteLabel: {
+    fontSize: 11,
+    color: Palette.primary,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 0.5,
   },
-  qualitySep: {
-    fontSize: FontSize.caption,
-    color: Colors.textTertiary,
+  lastNoteValue: {
+    fontSize: 14,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
   },
-  disconnectButton: {
-    marginTop: Spacing.sm,
+  lastNoteVelocity: {
+    marginLeft: 'auto',
+    fontSize: 11,
+    color: Palette.ink2,
+  },
+  lastNoteHint: {
+    fontSize: 11,
+    color: Palette.ink3,
   },
 });

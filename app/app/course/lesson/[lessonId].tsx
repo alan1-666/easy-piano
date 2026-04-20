@@ -8,8 +8,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../../src/theme';
-import { Button } from '../../../src/components/common';
+import { Chevron, Check } from '../../../src/components/Icons';
+import { Palette, FontWeight } from '../../../src/theme';
+import { Button, RadialBg } from '../../../src/components/common';
 import { mockLessons } from '../../../src/utils/mockData';
 
 interface StepInfo {
@@ -34,226 +35,222 @@ export default function LessonScreen() {
 
   if (!lesson) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <Text style={styles.errorText}>课时未找到</Text>
       </SafeAreaView>
     );
   }
 
-  const course = lesson.courseId;
-
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
+    <View style={styles.root}>
+      <View style={styles.radial} pointerEvents="none">
+        <RadialBg from={Palette.primarySoft} to={Palette.bg} cx={0.3} cy={0} rx={0.9} ry={0.5} />
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.backText}>← 返回</Text>
-        </TouchableOpacity>
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => router.back()}
+              activeOpacity={0.85}
+            >
+              <Chevron size={14} color={Palette.ink} rotate={180} />
+            </TouchableOpacity>
+            <View style={{ width: 36 }} />
+          </View>
 
-        {/* Lesson Title */}
-        <Text style={styles.levelCaption}>
-          Level {course} · 第 {lesson.orderIndex} 课
-        </Text>
-        <Text style={styles.lessonTitle}>{lesson.title}</Text>
-        <Text style={styles.lessonDesc}>{lesson.description}</Text>
+          <Text style={styles.levelCaption}>
+            Level {lesson.courseId} · 第 {lesson.orderIndex} 课
+          </Text>
+          <Text style={styles.lessonTitle}>{lesson.title}</Text>
+          <Text style={styles.lessonDesc}>{lesson.description}</Text>
 
-        {/* Step Stepper */}
-        <View style={styles.stepperCard}>
-          {STEPS.map((step, index) => {
-            const isActive = index === currentStep;
-            const isCompleted = index < currentStep;
-            const isLast = index === STEPS.length - 1;
+          <View style={styles.stepperCard}>
+            {STEPS.map((step, index) => {
+              const isActive = index === currentStep;
+              const isCompleted = index < currentStep;
+              const isLast = index === STEPS.length - 1;
 
-            return (
-              <View key={index}>
-                <View style={styles.stepRow}>
-                  {/* Step Indicator */}
-                  <View style={styles.stepIndicatorColumn}>
+              return (
+                <View key={index} style={styles.stepRow}>
+                  <View style={styles.stepCol}>
                     <View
                       style={[
                         styles.stepDot,
-                        isActive && styles.stepDotActive,
-                        isCompleted && styles.stepDotCompleted,
+                        isActive && {
+                          backgroundColor: Palette.primary,
+                          borderColor: Palette.primary,
+                        },
+                        isCompleted && {
+                          backgroundColor: Palette.mint,
+                          borderColor: Palette.mint,
+                        },
                       ]}
                     >
-                      <Text style={styles.stepDotText}>
-                        {isCompleted ? '✓' : step.icon}
-                      </Text>
+                      {isCompleted ? (
+                        <Check size={14} color={Palette.mintInk} />
+                      ) : (
+                        <Text style={styles.stepIconText}>{step.icon}</Text>
+                      )}
                     </View>
                     {!isLast && (
                       <View
                         style={[
                           styles.stepLine,
-                          (isCompleted || isActive) &&
-                            styles.stepLineActive,
+                          (isCompleted || isActive) && { backgroundColor: Palette.primary },
                         ]}
                       />
                     )}
                   </View>
-
-                  {/* Step Content */}
-                  <View
-                    style={[
-                      styles.stepContent,
-                      isActive && styles.stepContentActive,
-                    ]}
-                  >
+                  <View style={styles.stepContent}>
                     <Text
                       style={[
                         styles.stepTitle,
-                        isActive && styles.stepTitleActive,
+                        isActive && { color: Palette.primary },
                       ]}
                     >
-                      {step.icon} {step.title}
+                      {step.title}
                     </Text>
-                    <Text style={styles.stepDescription}>
-                      {step.description}
-                    </Text>
-                    {isActive && (
-                      <Text style={styles.stepCurrent}>← 当前</Text>
-                    )}
+                    <Text style={styles.stepDescription}>{step.description}</Text>
+                    {isActive && <Text style={styles.stepCurrent}>当前</Text>}
                   </View>
                 </View>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
 
-        {/* Start Button */}
-        <Button
-          title="开始练习 →"
-          onPress={() => {
-            if (lesson.songId) {
-              router.push(`/game/${lesson.songId}`);
-            }
-          }}
-          style={styles.startButton}
-        />
-      </ScrollView>
-    </SafeAreaView>
+          <View style={{ marginTop: 8 }}>
+            <Button
+              variant="primary"
+              size="lg"
+              block
+              onPress={() => {
+                if (lesson.songId) router.push(`/game/${lesson.songId}`);
+              }}
+              trailing={<Text style={{ color: '#fff', fontSize: 17, fontWeight: FontWeight.semibold }}>→</Text>}
+            >
+              开始练习
+            </Button>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
+  root: { flex: 1, backgroundColor: Palette.bg },
+  radial: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 240,
   },
+  container: { flex: 1, backgroundColor: Palette.bg },
   scrollContent: {
-    paddingHorizontal: Spacing.base,
-    paddingBottom: Spacing.xl,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   errorText: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
+    fontSize: 15,
+    color: Palette.ink2,
     textAlign: 'center',
-    marginTop: Spacing.xxl,
+    marginTop: 80,
   },
-  backButton: {
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.md,
-    alignSelf: 'flex-start',
+  topBar: {
+    marginTop: 8,
+    marginBottom: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  backText: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   levelCaption: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xs,
+    fontSize: 12,
+    color: Palette.ink2,
+    fontWeight: FontWeight.semibold,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   lessonTitle: {
-    fontSize: FontSize.h2,
-    fontWeight: '600',
-    color: Colors.white,
-    marginBottom: Spacing.sm,
+    fontSize: 28,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.7,
+    marginTop: 6,
   },
   lessonDesc: {
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.lg,
-    lineHeight: 22,
+    fontSize: 14,
+    color: Palette.ink2,
+    marginTop: 6,
+    lineHeight: 20,
   },
   stepperCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
-    marginBottom: Spacing.lg,
+    marginTop: 22,
+    marginBottom: 16,
+    backgroundColor: Palette.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    borderRadius: 24,
+    padding: 18,
   },
   stepRow: {
     flexDirection: 'row',
   },
-  stepIndicatorColumn: {
+  stepCol: {
     alignItems: 'center',
     width: 36,
-    marginRight: Spacing.md,
+    marginRight: 14,
   },
   stepDot: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.surfaceLight,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: Palette.chip,
     borderWidth: 2,
-    borderColor: Colors.surfaceLight,
+    borderColor: Palette.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  stepDotActive: {
-    borderColor: Colors.accent,
-    backgroundColor: Colors.surfaceLight,
-  },
-  stepDotCompleted: {
-    backgroundColor: Colors.success,
-    borderColor: Colors.success,
-  },
-  stepDotText: {
-    fontSize: 14,
-  },
+  stepIconText: { fontSize: 14 },
   stepLine: {
     width: 2,
     flex: 1,
     minHeight: 20,
-    backgroundColor: Colors.surfaceLight,
-  },
-  stepLineActive: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Palette.chip,
   },
   stepContent: {
     flex: 1,
-    paddingBottom: Spacing.base,
-  },
-  stepContentActive: {
-    opacity: 1,
+    paddingBottom: 18,
   },
   stepTitle: {
-    fontSize: FontSize.body,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xs,
-  },
-  stepTitleActive: {
-    color: Colors.accent,
+    fontSize: 14,
+    fontWeight: FontWeight.semibold,
+    color: Palette.ink2,
+    marginBottom: 4,
   },
   stepDescription: {
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    fontSize: 12,
+    color: Palette.ink3,
     lineHeight: 18,
   },
   stepCurrent: {
-    fontSize: FontSize.small,
-    color: Colors.accent,
-    fontWeight: '600',
-    marginTop: Spacing.xs,
-  },
-  startButton: {
-    marginTop: Spacing.sm,
+    fontSize: 11,
+    color: Palette.primary,
+    fontWeight: FontWeight.bold,
+    marginTop: 4,
   },
 });
