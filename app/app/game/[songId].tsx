@@ -12,11 +12,13 @@ import { StatusBar } from 'expo-status-bar';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useQuery } from '@tanstack/react-query';
 import PianoKeyboard from '../../src/components/Piano/PianoKeyboard';
 import { GameEngine, noteToKeyPosition, isBlackKey } from '../../src/engine/GameEngine';
 import { ScoreCalculator } from '../../src/engine/ScoreCalculator';
 import { useMIDIStore } from '../../src/stores/midiStore';
 import { audio } from '../../src/services/audio';
+import { getSong } from '../../src/api/songs';
 import { Palette, FontWeight } from '../../src/theme';
 import { Pill } from '../../src/components/common';
 import { Pause, Flame } from '../../src/components/Icons';
@@ -222,7 +224,20 @@ export default function GameScreen() {
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const midiActiveNotes = useMIDIStore((s) => s.activeNotes);
-  const selectedSong = useMemo(() => getSelectedSong(songIdParam), [songIdParam]);
+
+  // Fetch the song from the API so we pick up midi_data uploaded via
+  // POST /v1/admin/songs/:id/midi. Fall back to the mockData entry
+  // (same id) while the request is in flight so the UI can render
+  // immediately with the demo melody rather than flashing a spinner.
+  const songQuery = useQuery({
+    queryKey: ['song', songIdParam],
+    queryFn: () => getSong(Number(songIdParam)),
+    enabled: Number.isFinite(Number(songIdParam)),
+    staleTime: 60_000,
+  });
+  const selectedSong = useMemo<Song>(() => {
+    return songQuery.data ?? getSelectedSong(songIdParam);
+  }, [songQuery.data, songIdParam]);
   const gameSong = useMemo(() => buildPlayableSong(selectedSong), [selectedSong]);
   const keyboardConfig = useMemo(() => getKeyboardConfig(gameSong), [gameSong]);
   const isLandscape = windowWidth > windowHeight;
@@ -303,6 +318,11 @@ export default function GameScreen() {
   }, []);
 
   useEffect(() => {
+    // Wait until the API song fetch settles (success or error) before
+    // starting the countdown. Otherwise we init the engine with the
+    // mock fallback and then reset when the real data arrives, which
+    // looks like the countdown glitches back to 3 mid-song.
+    if (songQuery.isLoading) return;
     if (completionTimerRef.current) {
       clearTimeout(completionTimerRef.current);
       completionTimerRef.current = null;
@@ -332,7 +352,7 @@ export default function GameScreen() {
       if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
       if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
     };
-  }, [gameSong, layout.canvasHeight, layout.judgmentLineY]);
+  }, [gameSong, layout.canvasHeight, layout.judgmentLineY, songQuery.isLoading]);
 
   const recordHandGrade = useCallback((hand: SongHand, grade: HitGrade) => {
     setHandStats((prev) => {

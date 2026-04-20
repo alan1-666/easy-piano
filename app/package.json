@@ -12,6 +12,7 @@
   "dependencies": {
     "@shopify/react-native-skia": "^1.0.0",
     "@tanstack/react-query": "^5.0.0",
+    "@tonejs/midi": "^2.0.28",
     "axios": "^1.7.0",
     "expo": "~52.0.0",
     "expo-asset": "~11.0.5",
