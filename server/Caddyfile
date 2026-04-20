@@ -1,0 +1,7 @@
+# Terminates TLS for the staging API. nip.io is a public DNS service
+# that resolves `<ip-with-dashes>.nip.io` → <ip>, so Let's Encrypt can
+# HTTP-01 challenge us without us owning a real domain.
+117-72-160-220.nip.io {
+    encode zstd gzip
+    reverse_proxy server:8080
+}
