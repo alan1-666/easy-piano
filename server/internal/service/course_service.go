@@ -12,6 +12,7 @@ type CourseService interface {
 	GetLessons(courseID uint) ([]model.Lesson, error)
 	GetLesson(lessonID uint) (*model.Lesson, error)
 	CompleteLesson(userID, lessonID uint, score int) (*model.UserProgress, error)
+	GetUserProgress(userID uint) ([]model.UserProgress, error)
 }
 
 type courseService struct {
@@ -91,6 +92,12 @@ func (s *courseService) CompleteLesson(userID, lessonID uint, score int) (*model
 	s.db.Model(&model.User{}).Where("id = ?", userID).Update("xp", gorm.Expr("xp + ?", xp))
 
 	return &progress, nil
+}
+
+func (s *courseService) GetUserProgress(userID uint) ([]model.UserProgress, error) {
+	var rows []model.UserProgress
+	err := s.db.Where("user_id = ?", userID).Find(&rows).Error
+	return rows, err
 }
 
 func (s *courseService) unlockNextLesson(userID, currentLessonID uint) {

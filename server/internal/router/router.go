@@ -32,7 +32,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	subscriptionService := service.NewSubscriptionService(db)
 	leaderboardService := service.NewLeaderboardService(db)
 
-	userHandler := handler.NewUserHandler(userService)
+	userHandler := handler.NewUserHandler(userService, courseService, achievementService)
 	courseHandler := handler.NewCourseHandler(courseService)
 	lessonHandler := handler.NewLessonHandler(courseService, songService)
 	songHandler := handler.NewSongHandler(songService)
@@ -66,6 +66,8 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 				users.PUT("/me/settings", userHandler.UpdateSettings)
 				users.GET("/me/children", userHandler.GetChildren)
 				users.POST("/me/children", userHandler.CreateChild)
+				users.GET("/me/progress", userHandler.GetProgress)
+				users.GET("/me/achievements", userHandler.GetAchievements)
 			}
 
 			// Course routes

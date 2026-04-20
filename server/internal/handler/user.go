@@ -3,17 +3,28 @@ package handler
 import (
 	"net/http"
 
+	"github.com/alan1-666/easy-piano/server/internal/model"
 	"github.com/alan1-666/easy-piano/server/internal/service"
 	"github.com/alan1-666/easy-piano/server/pkg/response"
 	"github.com/gin-gonic/gin"
 )
 
 type UserHandler struct {
-	service service.UserService
+	service            service.UserService
+	courseService      service.CourseService
+	achievementService service.AchievementService
 }
 
-func NewUserHandler(svc service.UserService) *UserHandler {
-	return &UserHandler{service: svc}
+func NewUserHandler(
+	svc service.UserService,
+	courseSvc service.CourseService,
+	achievementSvc service.AchievementService,
+) *UserHandler {
+	return &UserHandler{
+		service:            svc,
+		courseService:      courseSvc,
+		achievementService: achievementSvc,
+	}
 }
 
 func getUserID(c *gin.Context) uint {
@@ -148,4 +159,41 @@ func (h *UserHandler) CreateChild(c *gin.Context) {
 	}
 	child.PasswordHash = ""
 	c.JSON(http.StatusCreated, response.Success(child))
+}
+
+// GetProgress returns every UserProgress row owned by the caller —
+// the courses screen needs this to colour lessons done / current / locked.
+func (h *UserHandler) GetProgress(c *gin.Context) {
+	userID := getUserID(c)
+	rows, err := h.courseService.GetUserProgress(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "failed to get progress"))
+		return
+	}
+	if rows == nil {
+		rows = []model.UserProgress{}
+	}
+	c.JSON(http.StatusOK, response.Success(rows))
+}
+
+// GetAchievements returns the full achievement catalog plus the caller's
+// unlocked records, so the client can render lock state without a second
+// round-trip.
+func (h *UserHandler) GetAchievements(c *gin.Context) {
+	userID := getUserID(c)
+	all, unlocked, err := h.achievementService.GetAchievements(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "failed to get achievements"))
+		return
+	}
+	if all == nil {
+		all = []model.Achievement{}
+	}
+	if unlocked == nil {
+		unlocked = []model.UserAchievement{}
+	}
+	c.JSON(http.StatusOK, response.Success(map[string]interface{}{
+		"achievements": all,
+		"unlocked":     unlocked,
+	}))
 }
