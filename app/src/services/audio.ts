@@ -1,18 +1,20 @@
 import { Audio, AVPlaybackSource } from 'expo-av';
 
-// Minimum viable audio engine: 3 base samples (A3/A4/A5) pitch-shifted via
-// playback rate to cover MIDI notes ~45..93 (E3..A6). expo-av's rate is
-// clamped to [0.5, 2.0] so each sample covers ±12 semitones.
+// Audio engine: 3 base samples (A3/A4/A5) pitch-shifted via expo-av's
+// playback rate to cover MIDI notes ~45..93 (E3..A6). expo-av rate is
+// clamped to [0.5, 2.0] when shouldCorrectPitch=false, so each sample
+// covers ±12 semitones.
 //
-// The samples are synthesized sine-plus-harmonic tones, not real piano
-// recordings — they sound fake but the plumbing matters more than the
-// timbre right now. Drop real .wav files in app/assets/audio/ with the
-// same names to upgrade.
+// Samples are real piano recordings from the MIT-licensed
+// `tonejs-instruments` piano set — 192 kbps mono MP3s, ~150 KB each.
+// Previous iteration used hand-synthesized sine+harmonic WAVs, which
+// work but sound synthy. The file extension changed (.wav → .mp3);
+// expo-av handles both transparently.
 
 const BASE_NOTES: Array<{ midi: number; source: AVPlaybackSource }> = [
-  { midi: 57, source: require('../../assets/audio/piano-a3.wav') },
-  { midi: 69, source: require('../../assets/audio/piano-a4.wav') },
-  { midi: 81, source: require('../../assets/audio/piano-a5.wav') },
+  { midi: 57, source: require('../../assets/audio/piano-a3.mp3') },
+  { midi: 69, source: require('../../assets/audio/piano-a4.mp3') },
+  { midi: 81, source: require('../../assets/audio/piano-a5.mp3') },
 ];
 
 // Pool a few Sound instances per base so we can play overlapping notes
@@ -112,7 +114,9 @@ async function playNote(midi: number, velocity = 80): Promise<void> {
     await chosen.sound.setRateAsync(rateFor(midi, base.midi), false);
     await chosen.sound.setVolumeAsync(Math.max(0.1, Math.min(1, velocity / 127)));
     await chosen.sound.playAsync();
-    chosen.busyUntilMs = now + 1500; // same as DUR in gen-piano-samples.js
+    // Real piano samples run ~4-5s natural decay. Mark busy for 3s so
+    // pool recycling tends to avoid stealing a still-ringing instance.
+    chosen.busyUntilMs = now + 3000;
   } catch (err) {
     // Swallow — audio failures shouldn't crash the game loop.
     console.warn('[audio] play failed:', err);
