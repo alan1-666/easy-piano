@@ -8,6 +8,7 @@ import '../src/i18n';
 import { initializeNativeMIDIBridge } from '../src/services/midi/nativeMIDI';
 import { useUserStore } from '../src/stores/userStore';
 import { syncQueue } from '../src/offline/syncQueue';
+import { audio } from '../src/services/audio';
 
 const queryClient = new QueryClient();
 
@@ -17,6 +18,9 @@ export default function RootLayout() {
     useUserStore.getState().hydrate();
     // Drain anything that piled up while the app was offline / closed.
     void syncQueue.flush();
+    // Warm the audio engine up in the background so the first note the
+    // user plays doesn't pay a 200–500ms preload cost.
+    void audio.init();
 
     // Flush again every time the app returns to the foreground — the
     // user may have come back online during the meantime.

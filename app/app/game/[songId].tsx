@@ -16,6 +16,7 @@ import PianoKeyboard from '../../src/components/Piano/PianoKeyboard';
 import { GameEngine, noteToKeyPosition, isBlackKey } from '../../src/engine/GameEngine';
 import { ScoreCalculator } from '../../src/engine/ScoreCalculator';
 import { useMIDIStore } from '../../src/stores/midiStore';
+import { audio } from '../../src/services/audio';
 import { Palette, FontWeight } from '../../src/theme';
 import { Pill } from '../../src/components/common';
 import { Pause, Flame } from '../../src/components/Icons';
@@ -463,6 +464,9 @@ export default function GameScreen() {
   const handleKeyPress = useCallback(
     (noteNumber: number) => {
       if (gameStatus !== 'playing') return;
+      // Kick off audio first — we don't want judging or state bookkeeping
+      // to block the synth. audio.playNote is fire-and-forget.
+      void audio.playNote(noteNumber);
       const now = performance.now();
       const nextActiveNotes = new Set(activeNotesRef.current);
       nextActiveNotes.add(noteNumber);
