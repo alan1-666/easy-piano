@@ -1,4 +1,5 @@
 import client from './client';
+import { decodeMidiData } from '../engine/midiDecoder';
 import type { Song } from '../types/song';
 
 // Shape as it arrives from the Go server (snake_case, tags is a raw string,
@@ -67,9 +68,11 @@ function toSong(raw: ServerSong): Song {
     tags: splitTags(raw.tags),
     coverUrl: raw.cover_url ?? '',
     isFree: raw.is_free,
-    // tracks: full MIDI parsing happens at game-load time; list view
-    // never reads this field so leaving it empty is fine.
-    tracks: [],
+    // midi_data may be either our JSON track format or (eventually) a
+    // base64 .mid blob. decodeMidiData handles the first and politely
+    // returns [] for the second, which the game engine treats as
+    // "fall back to the demo melody".
+    tracks: decodeMidiData(raw.midi_data),
   };
 }
 
