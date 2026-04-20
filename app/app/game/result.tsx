@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import { Palette, FontWeight } from '../../src/theme';
 import { Button, Pill, RadialBg } from '../../src/components/common';
 import { Flame, StarIcon } from '../../src/components/Icons';
 import { mockUser, mockXpToNextLevel } from '../../src/utils/mockData';
+import { submitPracticeLog } from '../../src/api/practice';
+import { useUserStore } from '../../src/stores/userStore';
 import type { GameResult, HandResultSummary } from '../../src/types/game';
 
 const DEFAULT_RESULT: GameResult & {
@@ -85,6 +87,10 @@ function getRank(score: number): { letter: string; color: string } {
 
 export default function GameResultScreen() {
   const router = useRouter();
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+  // useRef so the log only ever fires once even if the screen re-renders.
+  const submittedRef = useRef(false);
+
   useEffect(() => {
     void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
   }, []);
@@ -127,6 +133,31 @@ export default function GameResultScreen() {
     result.perfectCount + result.greatCount + result.goodCount + result.missCount;
   const safeTotalNotes = Math.max(totalNotes, 1);
   const xpAfter = mockUser.xp + result.xpEarned;
+
+  // Fire the practice log POST once per result mount. params are
+  // already in URL — no extra plumbing needed. Failures are swallowed:
+  // an offline sync queue is the right home for retries (next iteration).
+  useEffect(() => {
+    if (submittedRef.current) return;
+    if (!isLoggedIn) return;
+    if (!params.score) return; // no real game data, came in as default
+    submittedRef.current = true;
+    void submitPracticeLog({
+      song_id: result.songId,
+      mode: 'standard',
+      speed: 1.0,
+      score: result.score,
+      accuracy: result.accuracy,
+      max_combo: result.maxCombo,
+      perfect_count: result.perfectCount,
+      great_count: result.greatCount,
+      good_count: result.goodCount,
+      miss_count: result.missCount,
+      duration: 0,
+    }).catch((err) => {
+      console.warn('[result] failed to submit practice log:', err?.message ?? err);
+    });
+  }, [isLoggedIn, params.score, result.accuracy, result.goodCount, result.greatCount, result.maxCombo, result.missCount, result.perfectCount, result.score, result.songId]);
 
   const stats: Array<{ label: string; value: number; color: string; pct: number }> = [
     { label: 'Perfect', value: result.perfectCount, color: Palette.primary, pct: result.perfectCount / safeTotalNotes },

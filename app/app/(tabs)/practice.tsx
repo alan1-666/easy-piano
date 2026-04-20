@@ -5,42 +5,37 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
+import { useQuery } from '@tanstack/react-query';
 import { Chevron, Play, Lock, Check } from '../../src/components/Icons';
 import { Palette, FontWeight } from '../../src/theme';
 import { Pill, RadialBg } from '../../src/components/common';
-import { mockCourses, mockLessons, mockUserProgress } from '../../src/utils/mockData';
-import type { Lesson, UserProgress } from '../../src/types/user';
+import { getCourses, getLessons } from '../../src/api/courses';
+import { useUserStore } from '../../src/stores/userStore';
+import type { Lesson, Course } from '../../src/types/user';
 
+// Until the backend exposes a per-user progress endpoint, treat the first
+// lesson of an active level as "current" and everything else as unlocked.
+// Nothing is shown as completed — that prevents lying to the user.
 type LessonState = {
   lesson: Lesson;
-  progress?: UserProgress;
   done: boolean;
   current: boolean;
   locked: boolean;
 };
 
-function buildLessonStates(): LessonState[] {
-  const byId = new Map(mockUserProgress.map((p) => [p.lessonId, p]));
-  let foundCurrent = false;
-  return mockLessons.map((lesson) => {
-    const progress = byId.get(lesson.id);
-    const done = progress?.status === 'completed';
-    const unlocked = progress?.status === 'unlocked';
-    const current = !done && !foundCurrent && (unlocked || progress === undefined);
-    if (current) foundCurrent = true;
-    return {
-      lesson,
-      progress,
-      done,
-      current,
-      locked: !done && !current,
-    };
-  });
+function buildLessonStates(lessons: Lesson[]): LessonState[] {
+  return lessons.map((lesson, idx) => ({
+    lesson,
+    done: false,
+    current: idx === 0,
+    locked: false,
+  }));
 }
 
 function RadialProgress({ pct }: { pct: number }) {
@@ -78,13 +73,69 @@ function RadialProgress({ pct }: { pct: number }) {
 
 export default function CoursesScreen() {
   const router = useRouter();
-  const lessonStates = buildLessonStates();
-  const level1 = mockCourses[0];
-  const level2 = mockCourses[1];
-  const level3 = mockCourses[2];
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+
+  const coursesQuery = useQuery({
+    queryKey: ['courses'],
+    queryFn: getCourses,
+    enabled: isLoggedIn,
+    staleTime: 60_000,
+  });
+
+  const courses: Course[] = coursesQuery.data ?? [];
+  const sortedCourses = [...courses].sort((a, b) => a.level - b.level);
+  const level1 = sortedCourses[0];
+  const level2 = sortedCourses[1];
+  const level3 = sortedCourses[2];
+
+  const lessonsQuery = useQuery({
+    queryKey: ['lessons', level1?.id],
+    queryFn: () => (level1 ? getLessons(level1.id) : Promise.resolve([])),
+    enabled: !!level1,
+    staleTime: 60_000,
+  });
+
+  const lessons = lessonsQuery.data ?? [];
+  const lessonStates = buildLessonStates(lessons);
+  const totalCount = lessons.length;
   const doneCount = lessonStates.filter((s) => s.done).length;
-  const totalCount = lessonStates.length;
   const pct = doneCount / Math.max(1, totalCount);
+
+  if (!isLoggedIn) {
+    return (
+      <View style={styles.root}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+          <View style={styles.gateContainer}>
+            <Text style={styles.gateTitle}>请先登录</Text>
+            <Text style={styles.gateSubtitle}>登录后查看你的学习路径</Text>
+            <TouchableOpacity onPress={() => router.push('/auth/login')}>
+              <Text style={styles.gateLink}>去登录 →</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  if (coursesQuery.isLoading || !level1) {
+    return (
+      <View style={styles.root}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+          <View style={styles.gateContainer}>
+            <ActivityIndicator size="small" color={Palette.primary} />
+            <Text style={[styles.gateSubtitle, { marginTop: 10 }]}>
+              {coursesQuery.isError ? '加载失败' : '加载课程…'}
+            </Text>
+            {coursesQuery.isError && (
+              <TouchableOpacity onPress={() => coursesQuery.refetch()}>
+                <Text style={styles.gateLink}>重试</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -152,11 +203,6 @@ export default function CoursesScreen() {
                         {level1.level}.{s.lesson.orderIndex} {s.lesson.title}
                       </Text>
                     </View>
-                    {s.done && s.progress && s.progress.stars > 0 && (
-                      <Text style={styles.starRow}>
-                        {'★'.repeat(s.progress.stars) + '☆'.repeat(3 - s.progress.stars)}
-                      </Text>
-                    )}
                     {s.current && <Pill bg={Palette.primary} color="#fff" size="xs">开始</Pill>}
                   </TouchableOpacity>
                 ))}
@@ -164,23 +210,27 @@ export default function CoursesScreen() {
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.duration(400).delay(150)}>
-            <LockedLevelCard
-              level={level2.level}
-              title={level2.title}
-              meta={`12 课 · 完成 L${level2.level - 1} 解锁`}
-              opacity={0.82}
-            />
-          </Animated.View>
+          {level2 && (
+            <Animated.View entering={FadeInDown.duration(400).delay(150)}>
+              <LockedLevelCard
+                level={level2.level}
+                title={level2.title}
+                meta={`完成 L${level2.level - 1} 解锁`}
+                opacity={0.82}
+              />
+            </Animated.View>
+          )}
 
-          <Animated.View entering={FadeInDown.duration(400).delay(200)}>
-            <LockedLevelCard
-              level={level3.level}
-              title={level3.title}
-              meta={`12 课 · 完成 L${level3.level - 1} 解锁`}
-              opacity={0.6}
-            />
-          </Animated.View>
+          {level3 && (
+            <Animated.View entering={FadeInDown.duration(400).delay(200)}>
+              <LockedLevelCard
+                level={level3.level}
+                title={level3.title}
+                meta={`完成 L${level3.level - 1} 解锁`}
+                opacity={0.6}
+              />
+            </Animated.View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -323,5 +373,28 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.chip,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  gateContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 32,
+  },
+  gateTitle: {
+    fontSize: 22,
+    fontWeight: FontWeight.bold,
+    color: Palette.ink,
+    letterSpacing: -0.5,
+  },
+  gateSubtitle: {
+    fontSize: 13,
+    color: Palette.ink2,
+  },
+  gateLink: {
+    marginTop: 14,
+    fontSize: 14,
+    color: Palette.primary,
+    fontWeight: FontWeight.semibold,
   },
 });

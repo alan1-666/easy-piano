@@ -5,14 +5,16 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
-import { Chevron, Play, Lock, Check } from '../../src/components/Icons';
+import { useQuery } from '@tanstack/react-query';
+import { Chevron, Play } from '../../src/components/Icons';
 import { Palette, FontWeight } from '../../src/theme';
 import { Pill, RadialBg } from '../../src/components/common';
-import { mockCourses, mockUserProgress } from '../../src/utils/mockData';
+import { getCourses, getLessons } from '../../src/api/courses';
 
 const TYPE_LABELS: Record<string, string> = {
   teach: '讲解',
@@ -54,8 +56,34 @@ function RadialProgress({ pct }: { pct: number }) {
 export default function CourseDetailScreen() {
   const { courseId } = useLocalSearchParams<{ courseId: string }>();
   const router = useRouter();
+  const id = Number(courseId);
 
-  const course = mockCourses.find((c) => c.id === Number(courseId));
+  const coursesQuery = useQuery({
+    queryKey: ['courses'],
+    queryFn: getCourses,
+    staleTime: 60_000,
+  });
+
+  const lessonsQuery = useQuery({
+    queryKey: ['lessons', id],
+    queryFn: () => getLessons(id),
+    enabled: Number.isFinite(id),
+    staleTime: 60_000,
+  });
+
+  const course = coursesQuery.data?.find((c) => c.id === id);
+  const lessons = lessonsQuery.data ?? [];
+
+  if (coursesQuery.isLoading || lessonsQuery.isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="small" color={Palette.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!course) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -64,11 +92,9 @@ export default function CourseDetailScreen() {
     );
   }
 
-  const totalLessons = course.lessons.length;
-  const completedCount = course.lessons.filter((l) => {
-    const p = mockUserProgress.find((x) => x.lessonId === l.id);
-    return p?.status === 'completed';
-  }).length;
+  const totalLessons = lessons.length;
+  // No backend progress endpoint yet — display 0% until that's wired.
+  const completedCount = 0;
   const progress = totalLessons > 0 ? completedCount / totalLessons : 0;
 
   return (
@@ -110,12 +136,11 @@ export default function CourseDetailScreen() {
           <Text style={styles.sectionTitle}>课程内容</Text>
 
           <View style={styles.lessonList}>
-            {course.lessons.map((lesson) => {
-              const prog = mockUserProgress.find((p) => p.lessonId === lesson.id);
-              const status = prog?.status ?? 'locked';
-              const isLocked = status === 'locked';
-              const isCompleted = status === 'completed';
-              const isCurrent = status === 'unlocked';
+            {lessons.map((lesson, idx) => {
+              // Until /progress endpoint exists, treat the first lesson as
+              // current and the rest as plain unlocked. Nothing is shown
+              // as completed.
+              const isCurrent = idx === 0;
               const tone = TYPE_COLORS[lesson.type] ?? TYPE_COLORS.practice;
 
               return (
@@ -125,54 +150,36 @@ export default function CourseDetailScreen() {
                     styles.lessonItem,
                     isCurrent && styles.lessonItemCurrent,
                   ]}
-                  onPress={() => {
-                    if (!isLocked) router.push(`/course/lesson/${lesson.id}`);
-                  }}
-                  activeOpacity={isLocked ? 1 : 0.85}
-                  disabled={isLocked}
+                  onPress={() => router.push(`/course/lesson/${lesson.id}`)}
+                  activeOpacity={0.85}
                 >
                   <View
                     style={[
                       styles.lessonDot,
-                      isCompleted && { backgroundColor: Palette.mint },
-                      isCurrent && { backgroundColor: Palette.primary },
-                      isLocked && { backgroundColor: Palette.chip },
+                      { backgroundColor: isCurrent ? Palette.primary : Palette.chip },
                     ]}
                   >
-                    {isCompleted && <Check size={12} color={Palette.mintInk} />}
-                    {isCurrent && <Play size={10} color="#fff" />}
-                    {isLocked && <Lock size={11} color={Palette.ink3} />}
+                    {isCurrent ? (
+                      <Play size={10} color="#fff" />
+                    ) : (
+                      <Text style={{ fontSize: 11, fontWeight: FontWeight.bold, color: Palette.ink3 }}>
+                        {lesson.orderIndex}
+                      </Text>
+                    )}
                   </View>
 
                   <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.lessonTitle,
-                        isLocked && { color: Palette.ink3 },
-                      ]}
-                      numberOfLines={1}
-                    >
+                    <Text style={styles.lessonTitle} numberOfLines={1}>
                       {course.level}.{lesson.orderIndex} {lesson.title}
                     </Text>
                     <View style={styles.lessonMeta}>
                       <Pill bg={tone.bg} color={tone.ink} size="xs">
                         {TYPE_LABELS[lesson.type] ?? lesson.type}
                       </Pill>
-                      {isCompleted && prog && prog.stars > 0 && (
-                        <Text style={styles.lessonStars}>
-                          {'★'.repeat(prog.stars) + '☆'.repeat(3 - prog.stars)}
-                        </Text>
-                      )}
-                      {isCurrent && (
-                        <Text style={styles.lessonStateText}>未完成</Text>
-                      )}
-                      {isLocked && (
-                        <Text style={styles.lessonStateText}>未解锁</Text>
-                      )}
                     </View>
                   </View>
 
-                  {!isLocked && <Chevron size={14} color={Palette.ink3} />}
+                  <Chevron size={14} color={Palette.ink3} />
                 </TouchableOpacity>
               );
             })}
