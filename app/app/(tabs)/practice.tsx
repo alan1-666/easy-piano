@@ -16,26 +16,52 @@ import { Chevron, Play, Lock, Check } from '../../src/components/Icons';
 import { Palette, FontWeight } from '../../src/theme';
 import { Pill, RadialBg } from '../../src/components/common';
 import { getCourses, getLessons } from '../../src/api/courses';
+import { getMyProgress } from '../../src/api/users';
 import { useUserStore } from '../../src/stores/userStore';
-import type { Lesson, Course } from '../../src/types/user';
+import type { Lesson, Course, UserProgress } from '../../src/types/user';
 
-// Until the backend exposes a per-user progress endpoint, treat the first
-// lesson of an active level as "current" and everything else as unlocked.
-// Nothing is shown as completed — that prevents lying to the user.
 type LessonState = {
   lesson: Lesson;
+  progress?: UserProgress;
   done: boolean;
   current: boolean;
   locked: boolean;
 };
 
-function buildLessonStates(lessons: Lesson[]): LessonState[] {
-  return lessons.map((lesson, idx) => ({
-    lesson,
-    done: false,
-    current: idx === 0,
-    locked: false,
-  }));
+// Derive per-lesson UI state from the raw progress rows. Rules:
+//   - `completed` rows are done, regardless of order.
+//   - `unlocked` rows (or the first not-done lesson for brand-new users
+//     with no progress records yet) get `current`.
+//   - Everything else past the current one is `locked`, same as before.
+function buildLessonStates(
+  lessons: Lesson[],
+  progress: UserProgress[],
+): LessonState[] {
+  const byId = new Map(progress.map((p) => [p.lessonId, p]));
+  const hasAnyProgress = progress.length > 0;
+  let currentAssigned = false;
+  return lessons.map((lesson, idx) => {
+    const p = byId.get(lesson.id);
+    const done = p?.status === 'completed';
+    const unlocked = p?.status === 'unlocked';
+    let current = false;
+    if (!done && !currentAssigned) {
+      if (unlocked) {
+        current = true;
+      } else if (!hasAnyProgress && idx === 0) {
+        // Fresh user with no rows yet — treat the first lesson as current.
+        current = true;
+      }
+    }
+    if (current) currentAssigned = true;
+    return {
+      lesson,
+      progress: p,
+      done,
+      current,
+      locked: !done && !current,
+    };
+  });
 }
 
 function RadialProgress({ pct }: { pct: number }) {
@@ -95,8 +121,16 @@ export default function CoursesScreen() {
     staleTime: 60_000,
   });
 
+  const progressQuery = useQuery({
+    queryKey: ['progress'],
+    queryFn: getMyProgress,
+    enabled: isLoggedIn,
+    staleTime: 30_000,
+  });
+
   const lessons = lessonsQuery.data ?? [];
-  const lessonStates = buildLessonStates(lessons);
+  const progress = progressQuery.data ?? [];
+  const lessonStates = buildLessonStates(lessons, progress);
   const totalCount = lessons.length;
   const doneCount = lessonStates.filter((s) => s.done).length;
   const pct = doneCount / Math.max(1, totalCount);
@@ -203,6 +237,11 @@ export default function CoursesScreen() {
                         {level1.level}.{s.lesson.orderIndex} {s.lesson.title}
                       </Text>
                     </View>
+                    {s.done && s.progress && s.progress.stars > 0 && (
+                      <Text style={styles.starRow}>
+                        {'★'.repeat(s.progress.stars) + '☆'.repeat(3 - s.progress.stars)}
+                      </Text>
+                    )}
                     {s.current && <Pill bg={Palette.primary} color="#fff" size="xs">开始</Pill>}
                   </TouchableOpacity>
                 ))}

@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useQuery } from '@tanstack/react-query';
 import {
   IconUser,
   SettingsIcon,
@@ -17,14 +19,46 @@ import {
 } from '../../src/components/Icons';
 import { Palette, FontWeight } from '../../src/theme';
 import { ProgressBar, Pill, RadialBg } from '../../src/components/common';
-import {
-  mockUser,
-  mockXpToNextLevel,
-  mockAchievements,
-} from '../../src/utils/mockData';
+import { mockXpToNextLevel, mockAchievements } from '../../src/utils/mockData';
+import { useUserStore } from '../../src/stores/userStore';
+import { getMyStats, getMyAchievements } from '../../src/api/users';
 
 export default function ProfileScreen() {
-  const xpProgress = mockUser.xp / mockXpToNextLevel;
+  const router = useRouter();
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+  const user = useUserStore((s) => s.user);
+  const logout = useUserStore((s) => s.logout);
+
+  const statsQuery = useQuery({
+    queryKey: ['stats'],
+    queryFn: getMyStats,
+    enabled: isLoggedIn,
+    staleTime: 30_000,
+  });
+
+  const achievementsQuery = useQuery({
+    queryKey: ['achievements'],
+    queryFn: getMyAchievements,
+    enabled: isLoggedIn,
+    staleTime: 60_000,
+  });
+
+  const xp = user?.xp ?? 0;
+  const level = user?.level ?? 1;
+  const username = user?.username ?? '钢琴学习者';
+  const xpProgress = xp / mockXpToNextLevel;
+
+  const totalHours = (statsQuery.data?.totalPracticeSeconds ?? 0) / 3600;
+  const totalSongs = statsQuery.data?.totalSongsPlayed ?? 0;
+  const currentStreak = statsQuery.data?.currentStreak ?? 0;
+
+  // Fall back to the static achievement catalog when the backend table
+  // is empty — lets the UI still render the achievement grid on a fresh
+  // server where no achievements have been seeded.
+  const serverAchievements = achievementsQuery.data ?? [];
+  const achievements = serverAchievements.length > 0
+    ? serverAchievements
+    : mockAchievements.map((a) => ({ ...a, unlocked: !!a.unlockedAt }));
 
   return (
     <View style={styles.root}>
@@ -41,9 +75,9 @@ export default function ProfileScreen() {
               <View style={styles.avatar}>
                 <IconUser size={36} color={Palette.ink2} />
               </View>
-              <Text style={styles.username}>{mockUser.username}</Text>
+              <Text style={styles.username}>{username}</Text>
               <Pill bg={Palette.primarySoft} color={Palette.primary} size="sm" style={{ marginTop: 8 }}>
-                Lv.{mockUser.level} · 业余琴手
+                Lv.{level} · 业余琴手
               </Pill>
               <View style={styles.xpRow}>
                 <ProgressBar
@@ -53,7 +87,7 @@ export default function ProfileScreen() {
                   backgroundColor={Palette.chip}
                 />
                 <Text style={styles.xpText}>
-                  {mockUser.xp} / {mockXpToNextLevel} XP
+                  {xp} / {mockXpToNextLevel} XP
                 </Text>
               </View>
             </View>
@@ -61,9 +95,9 @@ export default function ProfileScreen() {
 
           <Animated.View entering={FadeInDown.duration(400).delay(60)}>
             <View style={styles.statsRow}>
-              <StatCard label="总时长" value="12.5h" tint={Palette.primary} />
-              <StatCard label="完成曲目" value="23" tint={Palette.lilacInk} />
-              <StatCard label="最长连续" value="15" tint={Palette.mintInk} />
+              <StatCard label="总时长" value={`${totalHours.toFixed(1)}h`} tint={Palette.primary} />
+              <StatCard label="完成曲目" value={String(totalSongs)} tint={Palette.lilacInk} />
+              <StatCard label="连续练习" value={String(currentStreak)} tint={Palette.mintInk} />
             </View>
           </Animated.View>
 
@@ -72,12 +106,12 @@ export default function ProfileScreen() {
               <View style={styles.achHeader}>
                 <Text style={styles.achTitle}>成就</Text>
                 <Text style={styles.achCount}>
-                  {mockAchievements.filter((a) => !!a.unlockedAt).length} / {mockAchievements.length}
+                  {achievements.filter((a) => a.unlocked).length} / {achievements.length}
                 </Text>
               </View>
               <View style={styles.achGrid}>
-                {mockAchievements.map((a) => {
-                  const unlocked = !!a.unlockedAt;
+                {achievements.map((a) => {
+                  const unlocked = a.unlocked;
                   return (
                     <View key={a.id} style={styles.achItem}>
                       <View
@@ -123,10 +157,27 @@ export default function ProfileScreen() {
               <Chevron size={14} color={Palette.ink3} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.logoutButton} activeOpacity={0.85}>
-              <LogOutIcon size={16} color={Palette.coralInk} />
-              <Text style={styles.logoutText}>退出登录</Text>
-            </TouchableOpacity>
+            {isLoggedIn ? (
+              <TouchableOpacity
+                style={styles.logoutButton}
+                activeOpacity={0.85}
+                onPress={() => {
+                  logout();
+                  router.replace('/auth/login');
+                }}
+              >
+                <LogOutIcon size={16} color={Palette.coralInk} />
+                <Text style={styles.logoutText}>退出登录</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.logoutButton}
+                activeOpacity={0.85}
+                onPress={() => router.push('/auth/login')}
+              >
+                <Text style={[styles.logoutText, { color: Palette.primary }]}>去登录</Text>
+              </TouchableOpacity>
+            )}
           </Animated.View>
         </ScrollView>
       </SafeAreaView>

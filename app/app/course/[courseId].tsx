@@ -11,10 +11,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 import { useQuery } from '@tanstack/react-query';
-import { Chevron, Play } from '../../src/components/Icons';
+import { Chevron, Play, Lock, Check } from '../../src/components/Icons';
 import { Palette, FontWeight } from '../../src/theme';
 import { Pill, RadialBg } from '../../src/components/common';
 import { getCourses, getLessons } from '../../src/api/courses';
+import { getMyProgress } from '../../src/api/users';
+import { useUserStore } from '../../src/stores/userStore';
 
 const TYPE_LABELS: Record<string, string> = {
   teach: '讲解',
@@ -58,6 +60,8 @@ export default function CourseDetailScreen() {
   const router = useRouter();
   const id = Number(courseId);
 
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+
   const coursesQuery = useQuery({
     queryKey: ['courses'],
     queryFn: getCourses,
@@ -71,8 +75,17 @@ export default function CourseDetailScreen() {
     staleTime: 60_000,
   });
 
+  const progressQuery = useQuery({
+    queryKey: ['progress'],
+    queryFn: getMyProgress,
+    enabled: isLoggedIn,
+    staleTime: 30_000,
+  });
+
   const course = coursesQuery.data?.find((c) => c.id === id);
   const lessons = lessonsQuery.data ?? [];
+  const progress = progressQuery.data ?? [];
+  const progressMap = new Map(progress.map((p) => [p.lessonId, p]));
 
   if (coursesQuery.isLoading || lessonsQuery.isLoading) {
     return (
@@ -93,9 +106,10 @@ export default function CourseDetailScreen() {
   }
 
   const totalLessons = lessons.length;
-  // No backend progress endpoint yet — display 0% until that's wired.
-  const completedCount = 0;
-  const progress = totalLessons > 0 ? completedCount / totalLessons : 0;
+  const completedCount = lessons.filter(
+    (l) => progressMap.get(l.id)?.status === 'completed',
+  ).length;
+  const progressPct = totalLessons > 0 ? completedCount / totalLessons : 0;
 
   return (
     <View style={styles.root}>
@@ -121,7 +135,7 @@ export default function CourseDetailScreen() {
 
           <View style={styles.headerCard}>
             <View style={styles.headerRow}>
-              <RadialProgress pct={progress} />
+              <RadialProgress pct={progressPct} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.levelTag}>LEVEL {course.level}</Text>
                 <Text style={styles.courseTitle}>{course.title}</Text>
@@ -136,11 +150,12 @@ export default function CourseDetailScreen() {
           <Text style={styles.sectionTitle}>课程内容</Text>
 
           <View style={styles.lessonList}>
-            {lessons.map((lesson, idx) => {
-              // Until /progress endpoint exists, treat the first lesson as
-              // current and the rest as plain unlocked. Nothing is shown
-              // as completed.
-              const isCurrent = idx === 0;
+            {lessons.map((lesson) => {
+              const p = progressMap.get(lesson.id);
+              const status = p?.status ?? 'locked';
+              const isCompleted = status === 'completed';
+              const isCurrent = status === 'unlocked';
+              const isLocked = !isCompleted && !isCurrent && progress.length > 0;
               const tone = TYPE_COLORS[lesson.type] ?? TYPE_COLORS.practice;
 
               return (
@@ -150,18 +165,27 @@ export default function CourseDetailScreen() {
                     styles.lessonItem,
                     isCurrent && styles.lessonItemCurrent,
                   ]}
-                  onPress={() => router.push(`/course/lesson/${lesson.id}`)}
-                  activeOpacity={0.85}
+                  onPress={() => {
+                    if (!isLocked) router.push(`/course/lesson/${lesson.id}`);
+                  }}
+                  disabled={isLocked}
+                  activeOpacity={isLocked ? 1 : 0.85}
                 >
                   <View
                     style={[
                       styles.lessonDot,
-                      { backgroundColor: isCurrent ? Palette.primary : Palette.chip },
+                      isCompleted && { backgroundColor: Palette.mint },
+                      isCurrent && { backgroundColor: Palette.primary },
+                      isLocked && { backgroundColor: Palette.chip },
+                      !isCompleted && !isCurrent && !isLocked && {
+                        backgroundColor: Palette.chip,
+                      },
                     ]}
                   >
-                    {isCurrent ? (
-                      <Play size={10} color="#fff" />
-                    ) : (
+                    {isCompleted && <Check size={12} color={Palette.mintInk} />}
+                    {isCurrent && <Play size={10} color="#fff" />}
+                    {isLocked && <Lock size={11} color={Palette.ink3} />}
+                    {!isCompleted && !isCurrent && !isLocked && (
                       <Text style={{ fontSize: 11, fontWeight: FontWeight.bold, color: Palette.ink3 }}>
                         {lesson.orderIndex}
                       </Text>
@@ -169,17 +193,28 @@ export default function CourseDetailScreen() {
                   </View>
 
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.lessonTitle} numberOfLines={1}>
+                    <Text
+                      style={[
+                        styles.lessonTitle,
+                        isLocked && { color: Palette.ink3 },
+                      ]}
+                      numberOfLines={1}
+                    >
                       {course.level}.{lesson.orderIndex} {lesson.title}
                     </Text>
                     <View style={styles.lessonMeta}>
                       <Pill bg={tone.bg} color={tone.ink} size="xs">
                         {TYPE_LABELS[lesson.type] ?? lesson.type}
                       </Pill>
+                      {isCompleted && p && p.stars > 0 && (
+                        <Text style={styles.lessonStars}>
+                          {'★'.repeat(p.stars) + '☆'.repeat(3 - p.stars)}
+                        </Text>
+                      )}
                     </View>
                   </View>
 
-                  <Chevron size={14} color={Palette.ink3} />
+                  {!isLocked && <Chevron size={14} color={Palette.ink3} />}
                 </TouchableOpacity>
               );
             })}

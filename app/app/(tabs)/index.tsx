@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,33 +9,77 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useQuery } from '@tanstack/react-query';
 import { Flame, Chevron, Play, WifiIcon } from '../../src/components/Icons';
 import { Palette, FontWeight } from '../../src/theme';
 import { ProgressBar, RadialBg } from '../../src/components/common';
-import {
-  mockUser,
-  mockSongs,
-  mockStreak,
-  mockTodayPracticeMinutes,
-  mockDailyGoalMinutes,
-  mockWeeklyPractice,
-  getGreeting,
-  formatDuration,
-} from '../../src/utils/mockData';
+import { mockDailyGoalMinutes, getGreeting, formatDuration } from '../../src/utils/mockData';
 import { songHue } from '../../src/utils/songColors';
+import { useUserStore } from '../../src/stores/userStore';
+import { getMyStats } from '../../src/api/users';
+import { getSongs } from '../../src/api/songs';
+import { getHistory } from '../../src/api/practice';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const quickPlaySongs = mockSongs.slice(0, 5);
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+  const user = useUserStore((s) => s.user);
+
+  const statsQuery = useQuery({
+    queryKey: ['stats'],
+    queryFn: getMyStats,
+    enabled: isLoggedIn,
+    staleTime: 30_000,
+  });
+
+  const songsQuery = useQuery({
+    queryKey: ['songs', null, ''],
+    queryFn: () => getSongs(1, 5),
+    enabled: isLoggedIn,
+    staleTime: 60_000,
+  });
+
+  const historyQuery = useQuery({
+    queryKey: ['history', 1, 50],
+    queryFn: () => getHistory(1, 50),
+    enabled: isLoggedIn,
+    staleTime: 30_000,
+  });
+
+  const quickPlaySongs = (songsQuery.data?.items ?? []).slice(0, 5);
   const weekDays = ['一', '二', '三', '四', '五', '六', '日'];
   const todayIndex = new Date().getDay();
   const todayBarIndex = todayIndex === 0 ? 6 : todayIndex - 1;
-  const maxMinutes = Math.max(...mockWeeklyPractice, 1);
-  const totalWeekMinutes = mockWeeklyPractice.reduce((a, b) => a + b, 0);
-  const goalPct = Math.min(
-    1,
-    mockTodayPracticeMinutes / mockDailyGoalMinutes,
-  );
+
+  // Derive weekly minutes from history client-side. The backend doesn't
+  // expose a weekly-aggregated endpoint, so we bin recent logs into
+  // Mon..Sun ourselves. This is good enough for the home dashboard.
+  const { weeklyMinutes, todayMinutes } = useMemo(() => {
+    const bins = [0, 0, 0, 0, 0, 0, 0];
+    let today = 0;
+    const now = new Date();
+    const todayKey = now.toISOString().slice(0, 10);
+    // Beginning of this week (Monday at 00:00 local).
+    const monday = new Date(now);
+    const dow = (now.getDay() + 6) % 7; // Mon=0..Sun=6
+    monday.setDate(now.getDate() - dow);
+    monday.setHours(0, 0, 0, 0);
+    for (const log of historyQuery.data?.items ?? []) {
+      const played = new Date(log.playedAt);
+      if (played < monday) continue;
+      const idx = (played.getDay() + 6) % 7;
+      const minutes = Math.round(log.duration / 60);
+      bins[idx] += minutes;
+      if (played.toISOString().slice(0, 10) === todayKey) today += minutes;
+    }
+    return { weeklyMinutes: bins, todayMinutes: today };
+  }, [historyQuery.data]);
+
+  const maxMinutes = Math.max(...weeklyMinutes, 1);
+  const totalWeekMinutes = weeklyMinutes.reduce((a, b) => a + b, 0);
+  const goalPct = Math.min(1, todayMinutes / mockDailyGoalMinutes);
+  const streak = statsQuery.data?.currentStreak ?? 0;
+  const username = user?.username ?? '钢琴学习者';
 
   return (
     <View style={styles.root}>
@@ -50,10 +94,10 @@ export default function HomeScreen() {
         >
           <Animated.View entering={FadeInDown.duration(400).delay(0)}>
             <Text style={styles.greetingSmall}>{getGreeting()}</Text>
-            <Text style={styles.greetingBig}>{mockUser.username}</Text>
+            <Text style={styles.greetingBig}>{username}</Text>
             <View style={styles.streakRow}>
               <Flame size={14} color={Palette.primary} />
-              <Text style={styles.streak}>连续练习 {mockStreak} 天</Text>
+              <Text style={styles.streak}>连续练习 {streak} 天</Text>
             </View>
           </Animated.View>
 
@@ -119,7 +163,7 @@ export default function HomeScreen() {
                 />
               </View>
               <Text style={styles.goalText}>
-                {mockTodayPracticeMinutes} / {mockDailyGoalMinutes} 分钟
+                {todayMinutes} / {mockDailyGoalMinutes} 分钟
               </Text>
             </View>
           </Animated.View>
@@ -177,7 +221,7 @@ export default function HomeScreen() {
                 </Text>
               </View>
               <View style={styles.barsContainer}>
-                {mockWeeklyPractice.map((minutes, index) => {
+                {weeklyMinutes.map((minutes, index) => {
                   const isToday = index === todayBarIndex;
                   return (
                     <View key={index} style={styles.barWrapper}>
