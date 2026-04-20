@@ -279,6 +279,13 @@ export default function GameScreen() {
   // Accumulates only while gameStatus === 'playing' (paused gaps don't count).
   const playStartRef = useRef<number | null>(null);
   const accumulatedMsRef = useRef(0);
+  // Auto-play bookkeeping: a flat sorted list of every note in every
+  // track (by start time) plus the index of the next unplayed one.
+  // Each game loop tick advances the index and fires audio.playNote for
+  // notes whose start has elapsed in song-time.
+  const songStartPerfRef = useRef<number | null>(null);
+  const scheduledNotesRef = useRef<Array<{ note: number; start: number; velocity: number }>>([]);
+  const nextAutoIdxRef = useRef(0);
   const lanePositions = useMemo(
     () =>
       Array.from(
@@ -316,6 +323,9 @@ export default function GameScreen() {
     activeNotesRef.current = new Set();
     setHitGrades(new Map());
     setHandStats(buildInitialHandStats(gameSong));
+    songStartPerfRef.current = null;
+    scheduledNotesRef.current = [];
+    nextAutoIdxRef.current = 0;
     setCountdownValue(3);
     setGameStatus('countdown');
     return () => {
@@ -359,8 +369,21 @@ export default function GameScreen() {
     if (gameStatus !== 'countdown') return;
     if (countdownValue <= 0) {
       setGameStatus('playing');
-      engineRef.current.start(performance.now());
+      const t = performance.now();
+      engineRef.current.start(t);
+      songStartPerfRef.current = t;
       playStartRef.current = Date.now();
+      // Freeze the full note timeline for autoplay. Sorted ascending by
+      // start so the tick loop can walk it with a single index.
+      const flat: Array<{ note: number; start: number; velocity: number }> = [];
+      for (const track of gameSong.tracks) {
+        for (const n of track.notes) {
+          flat.push({ note: n.note, start: n.start, velocity: n.velocity });
+        }
+      }
+      flat.sort((a, b) => a.start - b.start);
+      scheduledNotesRef.current = flat;
+      nextAutoIdxRef.current = 0;
       return;
     }
     const timer = setTimeout(() => {
@@ -383,6 +406,21 @@ export default function GameScreen() {
       scoreCalcRef.current.calculateHit(missedNote.grade);
       recordHandGrade(missedNote.hand, missedNote.grade);
     }
+    // Autoplay: walk scheduledNotesRef by the engine's elapsed time and
+    // fire audio.playNote for any notes whose start has gone by. Cheap
+    // O(notes-just-crossed) per tick thanks to the sorted list + index.
+    if (songStartPerfRef.current !== null) {
+      const elapsedMs = now - songStartPerfRef.current;
+      const scheduled = scheduledNotesRef.current;
+      let idx = nextAutoIdxRef.current;
+      while (idx < scheduled.length && scheduled[idx].start <= elapsedMs) {
+        const n = scheduled[idx];
+        void audio.playNote(n.note, n.velocity);
+        idx++;
+      }
+      nextAutoIdxRef.current = idx;
+    }
+
     const notes = engine.getVisibleNotes(
       now,
       windowWidth,
@@ -550,7 +588,12 @@ export default function GameScreen() {
 
   const handleResume = useCallback(() => {
     if (gameStatus === 'paused') {
-      engineRef.current.start(performance.now() - progress * gameSong.duration * 1000);
+      const t = performance.now() - progress * gameSong.duration * 1000;
+      engineRef.current.start(t);
+      // Autoplay timeline is anchored to the same virtual-start time as
+      // the engine; re-anchor here so paused time doesn't advance the
+      // note index (otherwise we'd skip notes on resume).
+      songStartPerfRef.current = t;
       playStartRef.current = Date.now();
       setGameStatus('playing');
     }
@@ -572,6 +615,9 @@ export default function GameScreen() {
     setHandStats(buildInitialHandStats(gameSong));
     playStartRef.current = null;
     accumulatedMsRef.current = 0;
+    songStartPerfRef.current = null;
+    scheduledNotesRef.current = [];
+    nextAutoIdxRef.current = 0;
     setCountdownValue(3);
     setGameStatus('countdown');
   }, [gameSong, layout.canvasHeight, layout.judgmentLineY]);
