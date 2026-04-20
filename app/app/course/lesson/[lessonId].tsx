@@ -128,7 +128,11 @@ export default function LessonScreen() {
               size="lg"
               block
               onPress={() => {
-                if (lesson.songId) router.push(`/game/${lesson.songId}`);
+                if (lesson.songId) {
+                  // Pass lessonId through so the result screen can fire
+                  // POST /lessons/:id/complete after the song ends.
+                  router.push(`/game/${lesson.songId}?lessonId=${lesson.id}`);
+                }
               }}
               trailing={<Text style={{ color: '#fff', fontSize: 17, fontWeight: FontWeight.semibold }}>→</Text>}
             >

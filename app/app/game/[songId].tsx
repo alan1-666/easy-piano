@@ -213,7 +213,10 @@ function buildInitialHandStats(song: PlayableSong): HandStatsMap {
 }
 
 export default function GameScreen() {
-  const { songId: songIdParam } = useLocalSearchParams<{ songId?: string }>();
+  const { songId: songIdParam, lessonId: lessonIdParam } = useLocalSearchParams<{
+    songId?: string;
+    lessonId?: string;
+  }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -428,11 +431,12 @@ export default function GameScreen() {
         missCount: String(counts.miss),
         xpEarned: String(xpEarned),
         accuracy: accuracy.toFixed(1),
+        ...(lessonIdParam ? { lessonId: String(lessonIdParam) } : {}),
         leftHand: JSON.stringify(finalizedHandStats.left),
         rightHand: JSON.stringify(finalizedHandStats.right),
       },
     });
-  }, [gameSong, handStats, router]);
+  }, [gameSong, handStats, router, lessonIdParam]);
 
   useEffect(() => {
     if (gameStatus !== 'completed') return;

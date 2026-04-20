@@ -13,8 +13,10 @@ import { Palette, FontWeight } from '../../src/theme';
 import { Button, Pill, RadialBg } from '../../src/components/common';
 import { Flame, StarIcon } from '../../src/components/Icons';
 import { mockUser, mockXpToNextLevel } from '../../src/utils/mockData';
-import { submitPracticeLog } from '../../src/api/practice';
+import { submitOrQueue } from '../../src/offline/practiceLogSync';
+import { completeLesson } from '../../src/api/courses';
 import { useUserStore } from '../../src/stores/userStore';
+import { useQueryClient } from '@tanstack/react-query';
 import type { GameResult, HandResultSummary } from '../../src/types/game';
 
 const DEFAULT_RESULT: GameResult & {
@@ -88,6 +90,7 @@ function getRank(score: number): { letter: string; color: string } {
 export default function GameResultScreen() {
   const router = useRouter();
   const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+  const queryClient = useQueryClient();
   // useRef so the log only ever fires once even if the screen re-renders.
   const submittedRef = useRef(false);
 
@@ -108,6 +111,7 @@ export default function GameResultScreen() {
     missCount?: string;
     xpEarned?: string;
     accuracy?: string;
+    lessonId?: string;
     leftHand?: string;
     rightHand?: string;
   }>();
@@ -134,15 +138,21 @@ export default function GameResultScreen() {
   const safeTotalNotes = Math.max(totalNotes, 1);
   const xpAfter = mockUser.xp + result.xpEarned;
 
-  // Fire the practice log POST once per result mount. params are
-  // already in URL — no extra plumbing needed. Failures are swallowed:
-  // an offline sync queue is the right home for retries (next iteration).
+  // Fire submissions once per result mount. params are already in URL —
+  // no extra plumbing needed. We do two things in parallel:
+  //   1. Always log the practice session (POST /v1/practice/log)
+  //   2. If the game was launched from a lesson page (lessonId in params),
+  //      mark that lesson complete (POST /v1/lessons/:id/complete) so
+  //      the courses screen reflects the new state.
+  // Failures are swallowed; the offline sync queue is the right home
+  // for proper retry semantics (next iteration).
   useEffect(() => {
     if (submittedRef.current) return;
     if (!isLoggedIn) return;
-    if (!params.score) return; // no real game data, came in as default
+    if (!params.score) return; // no real game data, came in as defaults
     submittedRef.current = true;
-    void submitPracticeLog({
+
+    void submitOrQueue({
       song_id: result.songId,
       mode: 'standard',
       speed: 1.0,
@@ -154,10 +164,45 @@ export default function GameResultScreen() {
       good_count: result.goodCount,
       miss_count: result.missCount,
       duration: 0,
-    }).catch((err) => {
-      console.warn('[result] failed to submit practice log:', err?.message ?? err);
-    });
-  }, [isLoggedIn, params.score, result.accuracy, result.goodCount, result.greatCount, result.maxCombo, result.missCount, result.perfectCount, result.score, result.songId]);
+    })
+      .then(() => {
+        // Stats and history may have changed — refresh the caches that
+        // back the home and profile dashboards. (No-op when the log
+        // landed in the offline queue; the caches will refresh after
+        // the next successful flush instead.)
+        queryClient.invalidateQueries({ queryKey: ['stats'] });
+        queryClient.invalidateQueries({ queryKey: ['history', 1, 50] });
+      })
+      .catch((err) => {
+        // Only permanent 4xx errors reach here.
+        console.warn('[result] dropped practice log:', err?.message ?? err);
+      });
+
+    const lessonId = params.lessonId ? Number(params.lessonId) : NaN;
+    if (Number.isFinite(lessonId)) {
+      void completeLesson(lessonId, result.score)
+        .then(() => {
+          // Progress changed — courses tab and detail page should refetch.
+          queryClient.invalidateQueries({ queryKey: ['progress'] });
+        })
+        .catch((err) => {
+          console.warn('[result] failed to complete lesson:', err?.message ?? err);
+        });
+    }
+  }, [
+    isLoggedIn,
+    params.score,
+    params.lessonId,
+    result.accuracy,
+    result.goodCount,
+    result.greatCount,
+    result.maxCombo,
+    result.missCount,
+    result.perfectCount,
+    result.score,
+    result.songId,
+    queryClient,
+  ]);
 
   const stats: Array<{ label: string; value: number; color: string; pct: number }> = [
     { label: 'Perfect', value: result.perfectCount, color: Palette.primary, pct: result.perfectCount / safeTotalNotes },
