@@ -5,12 +5,14 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '../src/i18n';
 import { initializeNativeMIDIBridge } from '../src/services/midi/nativeMIDI';
+import { useUserStore } from '../src/stores/userStore';
 
 const queryClient = new QueryClient();
 
 export default function RootLayout() {
   useEffect(() => {
     void initializeNativeMIDIBridge();
+    useUserStore.getState().hydrate();
   }, []);
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,19 @@ import {
   FlatList,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import Svg, { Rect } from 'react-native-svg';
+import { useQuery } from '@tanstack/react-query';
 import { Search, Lock, MenuIcon } from '../../src/components/Icons';
 import { Palette, FontWeight } from '../../src/theme';
 import { Pill, Button, LinearBar } from '../../src/components/common';
-import { mockSongs, formatDuration } from '../../src/utils/mockData';
+import { formatDuration } from '../../src/utils/mockData';
 import { songHue } from '../../src/utils/songColors';
+import { getSongs } from '../../src/api/songs';
+import { useUserStore } from '../../src/stores/userStore';
 import type { Song } from '../../src/types/song';
 
 const FILTERS: Array<{ label: string; diff: number | null; tag?: string }> = [
@@ -33,26 +36,27 @@ const starsOf = (d: number) => '●'.repeat(d) + '○'.repeat(Math.max(0, 5 - d)
 export default function SongsScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const isLoggedIn = useUserStore((s) => s.isLoggedIn);
 
-  const filteredSongs = useMemo(() => {
-    let songs = mockSongs;
-    const f = FILTERS[selectedIndex];
-    if (f.diff != null) {
-      songs = songs.filter((s) => s.difficulty === f.diff);
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      songs = songs.filter(
-        (s) =>
-          s.title.toLowerCase().includes(q) ||
-          s.artist.toLowerCase().includes(q),
-      );
-    }
-    return songs;
-  }, [searchQuery, selectedIndex]);
+  // Debounce the search so we don't hammer the API on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
-  const featured = mockSongs[3] ?? mockSongs[0]; // 卡农
+  const difficulty = FILTERS[selectedIndex].diff ?? undefined;
+
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['songs', difficulty, debouncedQuery],
+    queryFn: () => getSongs(1, 50, difficulty, debouncedQuery || undefined),
+    enabled: isLoggedIn,
+    staleTime: 30_000,
+  });
+
+  const songs: Song[] = data?.items ?? [];
+  const featured = songs[3] ?? songs[0];
 
   const renderSongItem = ({ item, index }: { item: Song; index: number }) => {
     const { hue, ink } = songHue(item.id);
@@ -95,16 +99,46 @@ export default function SongsScreen() {
     );
   };
 
-  const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>没有找到曲目</Text>
-    </View>
-  );
+  const renderEmpty = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="small" color={Palette.primary} />
+          <Text style={[styles.emptyText, { marginTop: 10 }]}>加载曲库…</Text>
+        </View>
+      );
+    }
+    if (isError) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>加载失败，点击重试</Text>
+          <TouchableOpacity onPress={() => refetch()} style={{ marginTop: 10 }}>
+            <Text style={{ color: Palette.primary, fontWeight: FontWeight.semibold }}>重试</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    if (!isLoggedIn) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>请先登录查看曲库</Text>
+          <TouchableOpacity onPress={() => router.push('/auth/login')} style={{ marginTop: 10 }}>
+            <Text style={{ color: Palette.primary, fontWeight: FontWeight.semibold }}>去登录</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>没有找到曲目</Text>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlatList
-        data={filteredSongs}
+        data={songs}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderSongItem}
         ListEmptyComponent={renderEmpty}
@@ -164,33 +198,35 @@ export default function SongsScreen() {
               })}
             </ScrollView>
 
-            <View style={styles.featuredCard}>
-              <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-                <LinearBar from={Palette.primarySoft} to={Palette.lilac} angle={45} radius={24} />
+            {featured && (
+              <View style={styles.featuredCard}>
+                <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+                  <LinearBar from={Palette.primarySoft} to={Palette.lilac} angle={45} radius={24} />
+                </View>
+                <Pill bg="rgba(255,255,255,0.7)" color={Palette.primary}>本周精选</Pill>
+                <Text style={styles.featuredTitle}>{featured.title}</Text>
+                <Text style={styles.featuredMeta}>
+                  {featured.artist} · {formatDuration(featured.duration)} · {starsOf(featured.difficulty)}
+                </Text>
+                <View style={styles.featuredCta}>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onPress={() => router.push(`/game/${featured.id}`)}
+                  >
+                    开始练习
+                  </Button>
+                  <Button size="sm" variant="secondary" onPress={() => {}}>
+                    试听
+                  </Button>
+                </View>
+                <View style={styles.featuredKeys} pointerEvents="none">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <View key={i} style={styles.featuredKey} />
+                  ))}
+                </View>
               </View>
-              <Pill bg="rgba(255,255,255,0.7)" color={Palette.primary}>本周精选</Pill>
-              <Text style={styles.featuredTitle}>{featured.title}</Text>
-              <Text style={styles.featuredMeta}>
-                {featured.artist} · {formatDuration(featured.duration)} · {starsOf(featured.difficulty)}
-              </Text>
-              <View style={styles.featuredCta}>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onPress={() => router.push(`/game/${featured.id}`)}
-                >
-                  开始练习
-                </Button>
-                <Button size="sm" variant="secondary" onPress={() => {}}>
-                  试听
-                </Button>
-              </View>
-              <View style={styles.featuredKeys} pointerEvents="none">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <View key={i} style={styles.featuredKey} />
-                ))}
-              </View>
-            </View>
+            )}
           </>
         }
       />
