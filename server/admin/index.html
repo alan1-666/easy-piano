@@ -17,6 +17,10 @@
     --primary-soft: #FFE4F0;
     --mint: #B8F2CC;
     --mint-ink: #0A6E3C;
+    --lilac: #E3D9FF;
+    --lilac-ink: #5A3FD6;
+    --sun: #FFE066;
+    --sun-ink: #7A5A00;
     --coral: #FFD5CE;
     --coral-ink: #B4301C;
   }
@@ -27,9 +31,10 @@
     background: var(--bg); color: var(--ink);
     -webkit-font-smoothing: antialiased;
   }
-  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
-  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin: 0 0 6px; }
-  .sub { color: var(--ink2); font-size: 14px; margin: 0 0 24px; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin: 0; }
+  h2 { font-size: 18px; font-weight: 600; margin: 0 0 12px; }
+  .sub { color: var(--ink2); font-size: 13px; margin: 2px 0 0; }
 
   /* Login */
   .login-card {
@@ -46,7 +51,12 @@
     border-radius: 10px; font-size: 14px; margin-bottom: 14px;
     background: var(--bg); color: var(--ink);
   }
-  .login-card input:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+  input, select, textarea {
+    font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: 2px solid var(--primary); outline-offset: -1px;
+  }
 
   /* Buttons */
   button {
@@ -54,7 +64,8 @@
     font-weight: 600; font-size: 13px; border-radius: 8px;
     padding: 8px 14px; transition: transform 0.05s;
   }
-  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button:active:not(:disabled) { transform: scale(0.97); }
   .btn-primary {
     background: var(--primary); color: #fff;
     box-shadow: 0 4px 12px rgba(255,0,122,0.28);
@@ -69,18 +80,29 @@
   }
   .btn-small { padding: 6px 10px; font-size: 12px; border-radius: 6px; }
 
-  /* Header with logout */
+  /* Header + tabs */
   .header-row {
     display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 18px;
   }
   .user-chip {
     background: var(--primary-soft); color: var(--primary);
     padding: 4px 10px; border-radius: 999px;
     font-size: 12px; font-weight: 600;
   }
+  .tabs {
+    display: flex; gap: 8px; border-bottom: 1px solid var(--line);
+    margin-bottom: 20px; padding-bottom: 0;
+  }
+  .tab {
+    background: transparent; border: none; padding: 10px 16px;
+    font-size: 14px; font-weight: 600; color: var(--ink2);
+    border-bottom: 2px solid transparent; border-radius: 0;
+    margin-bottom: -1px; cursor: pointer;
+  }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-  /* Songs table */
+  /* Tables */
   .table-card {
     background: var(--card); border: 1px solid var(--line);
     border-radius: 16px; overflow: hidden;
@@ -94,10 +116,13 @@
     text-transform: uppercase;
   }
   td {
-    padding: 14px 16px; font-size: 14px;
+    padding: 12px 16px; font-size: 13px;
     border-top: 1px solid var(--line);
+    vertical-align: middle;
   }
   td.small { font-size: 12px; color: var(--ink2); }
+
+  /* Tags */
   .tag {
     display: inline-block; padding: 3px 8px;
     border-radius: 999px; font-size: 10px; font-weight: 700;
@@ -106,25 +131,81 @@
   .tag-has { background: var(--mint); color: var(--mint-ink); }
   .tag-none { background: var(--chip); color: var(--ink3); }
   .tag-json { background: var(--primary-soft); color: var(--primary); }
-  .tag-midi { background: #E3D9FF; color: #5A3FD6; }
+  .tag-midi { background: var(--lilac); color: var(--lilac-ink); }
+  .tag-free { background: var(--mint); color: var(--mint-ink); }
+  .tag-paid { background: var(--sun); color: var(--sun-ink); }
+  .tag-admin { background: var(--coral); color: var(--coral-ink); }
+  .tag-sub-active { background: var(--mint); color: var(--mint-ink); }
+  .tag-sub-expired { background: var(--chip); color: var(--ink3); }
 
-  .actions { display: flex; gap: 6px; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 
-  /* Error banner */
-  .error-banner {
-    background: var(--coral); color: var(--coral-ink);
+  /* Banner */
+  .banner {
     padding: 10px 14px; border-radius: 10px;
     font-size: 13px; font-weight: 500;
     margin-bottom: 16px;
   }
-  .success-banner {
-    background: var(--mint); color: var(--mint-ink);
-    padding: 10px 14px; border-radius: 10px;
-    font-size: 13px; font-weight: 500;
-    margin-bottom: 16px;
+  .banner-ok { background: var(--mint); color: var(--mint-ink); }
+  .banner-err { background: var(--coral); color: var(--coral-ink); }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(14,14,16,0.5);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 80px 24px; z-index: 100; overflow-y: auto;
+  }
+  .modal {
+    background: var(--card); border-radius: 16px; padding: 24px;
+    width: 100%; max-width: 520px;
+    box-shadow: 0 30px 60px -10px rgba(0,0,0,0.18);
+  }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 18px;
+  }
+  .field { display: block; margin-bottom: 12px; }
+  .field label {
+    display: block; font-size: 11px; color: var(--ink2);
+    font-weight: 600; margin-bottom: 4px; letter-spacing: 0.3px;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: 8px; font-size: 13px; background: var(--bg); color: var(--ink);
+  }
+  .field-row { display: flex; gap: 12px; }
+  .field-row .field { flex: 1; }
+  .switch-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0;
+  }
+  .switch-row input[type=checkbox] { width: 16px; height: 16px; }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; gap: 12px; flex-wrap: wrap;
+  }
+  .toolbar input[type=search] {
+    padding: 8px 12px; border: 1px solid var(--line);
+    border-radius: 10px; font-size: 13px; min-width: 260px;
+    background: var(--card); color: var(--ink);
   }
 
-  /* Hidden input */
+  /* User detail panel */
+  .detail-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; margin-top: 12px;
+  }
+  .detail-kv {
+    background: var(--bg); border-radius: 10px; padding: 10px 12px;
+  }
+  .detail-kv .k {
+    font-size: 10px; color: var(--ink3); font-weight: 700;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .detail-kv .v { font-size: 14px; color: var(--ink); font-weight: 600; margin-top: 2px; }
+
   input[type=file] { display: none; }
 </style>
 </head>
@@ -134,21 +215,31 @@
 </div>
 
 <script>
+//==============================================================
+// STATE
+//==============================================================
 const STATE = {
   token: localStorage.getItem('admin_token') || null,
   email: localStorage.getItem('admin_email') || null,
+  tab: 'songs',
   songs: [],
+  users: [],
+  userTotal: 0,
+  userPage: 1,
+  userQuery: '',
+  selectedUser: null, // {user, subscription, total_sessions, ...}
+  editingSong: null,  // song object or {__new: true}
   message: null,
-  messageKind: 'success',
+  messageKind: 'ok',
 };
 
-// Most requests happen from the same origin (admin is served by the
-// Go server, same host as /v1/*). For local file:// use, default to
-// localhost:8080.
 const API_BASE = (location.origin === 'null' || location.protocol === 'file:')
   ? 'http://localhost:8080/v1'
   : `${location.origin}/v1`;
 
+//==============================================================
+// API
+//==============================================================
 async function api(path, { method = 'GET', body, headers = {}, raw = false } = {}) {
   const opts = { method, headers: { ...headers } };
   if (STATE.token) opts.headers['Authorization'] = `Bearer ${STATE.token}`;
@@ -171,15 +262,21 @@ async function api(path, { method = 'GET', body, headers = {}, raw = false } = {
   return data.data;
 }
 
-function showMessage(text, kind = 'success') {
+function flash(text, kind = 'ok') {
   STATE.message = text;
   STATE.messageKind = kind;
   render();
   setTimeout(() => {
-    if (STATE.message === text) { STATE.message = null; render(); }
-  }, 3500);
+    if (STATE.message === text) {
+      STATE.message = null;
+      render();
+    }
+  }, 3000);
 }
 
+//==============================================================
+// AUTH
+//==============================================================
 async function login(email, password) {
   try {
     const data = await api('/auth/login', {
@@ -190,10 +287,9 @@ async function login(email, password) {
     STATE.email = data.user.email;
     localStorage.setItem('admin_token', STATE.token);
     localStorage.setItem('admin_email', STATE.email);
-    // Verify admin by hitting an admin-only endpoint.
-    await loadSongs();
+    await loadTab();
   } catch (err) {
-    showMessage(`登录失败: ${err.message}`, 'error');
+    flash(`登录失败: ${err.message}`, 'err');
   }
 }
 
@@ -201,23 +297,36 @@ function logout() {
   STATE.token = null;
   STATE.email = null;
   STATE.songs = [];
+  STATE.users = [];
+  STATE.selectedUser = null;
   localStorage.removeItem('admin_token');
   localStorage.removeItem('admin_email');
   render();
 }
 
+async function loadTab() {
+  if (STATE.tab === 'songs') await loadSongs();
+  else if (STATE.tab === 'users') await loadUsers();
+  render();
+}
+
+function switchTab(tab) {
+  STATE.tab = tab;
+  STATE.selectedUser = null;
+  STATE.editingSong = null;
+  loadTab();
+}
+
+//==============================================================
+// SONGS
+//==============================================================
 async function loadSongs() {
   try {
-    const page = await api('/songs?page=1&page_size=100');
+    const page = await api('/songs?page=1&page_size=200');
     STATE.songs = page.items.sort((a, b) => a.id - b.id);
-    render();
   } catch (err) {
-    if (err.status === 401) {
-      logout();
-      showMessage('登录已过期，请重新登录', 'error');
-    } else {
-      showMessage(`加载曲库失败: ${err.message}`, 'error');
-    }
+    if (err.status === 401) { logout(); flash('登录已过期', 'err'); return; }
+    flash(`加载曲库失败: ${err.message}`, 'err');
   }
 }
 
@@ -233,22 +342,53 @@ async function uploadMidi(songId, file) {
     const fd = new FormData();
     fd.append('midi', file);
     const data = await api(`/admin/songs/${songId}/midi`, { method: 'POST', body: fd });
-    showMessage(`已上传: ${data.midi_bytes} 字节`, 'success');
-    await loadSongs();
-  } catch (err) {
-    showMessage(`上传失败: ${err.message}`, 'error');
-  }
+    flash(`已上传 ${data.midi_bytes} 字节`);
+    await loadSongs(); render();
+  } catch (err) { flash(`上传失败: ${err.message}`, 'err'); }
 }
 
 async function clearMidi(songId) {
-  if (!confirm(`确定清空 song#${songId} 的 MIDI 数据？`)) return;
+  if (!confirm(`清空 song#${songId} 的 MIDI？`)) return;
   try {
     await api(`/admin/songs/${songId}/midi`, { method: 'DELETE' });
-    showMessage(`已清空 song#${songId}`, 'success');
-    await loadSongs();
-  } catch (err) {
-    showMessage(`清空失败: ${err.message}`, 'error');
-  }
+    flash(`已清空`);
+    await loadSongs(); render();
+  } catch (err) { flash(`清空失败: ${err.message}`, 'err'); }
+}
+
+async function deleteSong(songId) {
+  if (!confirm(`确定删除 song#${songId}？此操作不可撤销`)) return;
+  try {
+    await api(`/admin/songs/${songId}`, { method: 'DELETE' });
+    flash(`已删除`);
+    await loadSongs(); render();
+  } catch (err) { flash(`删除失败: ${err.message}`, 'err'); }
+}
+
+async function saveSong(form) {
+  const body = {
+    title: form.title.value.trim(),
+    artist: form.artist.value.trim(),
+    difficulty: Number(form.difficulty.value),
+    bpm: Number(form.bpm.value),
+    duration: Number(form.duration.value),
+    time_signature: form.time_signature.value.trim() || '4/4',
+    key_signature: form.key_signature.value.trim() || 'C',
+    tags: form.tags.value.trim(),
+    is_free: form.is_free.checked,
+  };
+  const isNew = !!STATE.editingSong.__new;
+  try {
+    if (isNew) {
+      await api('/admin/songs', { method: 'POST', body });
+      flash(`已创建: ${body.title}`);
+    } else {
+      await api(`/admin/songs/${STATE.editingSong.id}`, { method: 'PATCH', body });
+      flash(`已更新: ${body.title}`);
+    }
+    STATE.editingSong = null;
+    await loadSongs(); render();
+  } catch (err) { flash(`保存失败: ${err.message}`, 'err'); }
 }
 
 function triggerUpload(songId) {
@@ -262,10 +402,51 @@ function triggerUpload(songId) {
   input.click();
 }
 
+//==============================================================
+// USERS
+//==============================================================
+async function loadUsers() {
+  try {
+    const qs = new URLSearchParams({
+      page: String(STATE.userPage),
+      page_size: '20',
+      ...(STATE.userQuery ? { q: STATE.userQuery } : {}),
+    });
+    const page = await api(`/admin/users?${qs}`);
+    STATE.users = page.items;
+    STATE.userTotal = page.total;
+  } catch (err) {
+    if (err.status === 401) { logout(); flash('登录已过期', 'err'); return; }
+    if (err.status === 403) { flash('当前账号不是管理员', 'err'); return; }
+    flash(`加载用户失败: ${err.message}`, 'err');
+  }
+}
+
+async function openUserDetail(id) {
+  try {
+    const data = await api(`/admin/users/${id}`);
+    STATE.selectedUser = data;
+    render();
+  } catch (err) { flash(`加载用户详情失败: ${err.message}`, 'err'); }
+}
+
+async function toggleAdmin(userId, next) {
+  try {
+    await api(`/admin/users/${userId}`, { method: 'PATCH', body: { is_admin: next } });
+    flash(`${next ? '已授予' : '已撤销'} admin 权限`);
+    await loadUsers();
+    if (STATE.selectedUser?.user?.id === userId) await openUserDetail(userId);
+    render();
+  } catch (err) { flash(`更新失败: ${err.message}`, 'err'); }
+}
+
+//==============================================================
+// RENDER
+//==============================================================
 function render() {
   const root = document.getElementById('app');
   const banner = STATE.message
-    ? `<div class="${STATE.messageKind === 'error' ? 'error-banner' : 'success-banner'}">${STATE.message}</div>`
+    ? `<div class="banner ${STATE.messageKind === 'err' ? 'banner-err' : 'banner-ok'}">${STATE.message}</div>`
     : '';
 
   if (!STATE.token) {
@@ -281,8 +462,7 @@ function render() {
           <input type="password" name="password" required autocomplete="current-password">
           <button type="submit" class="btn-primary" style="width:100%;padding:10px;font-size:14px">登录</button>
         </form>
-      </div>
-    `;
+      </div>`;
     document.getElementById('login-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
@@ -291,60 +471,256 @@ function render() {
     return;
   }
 
-  const rows = STATE.songs.map((s) => {
-    const fmt = midiFormat(s.midi_data);
-    return `
-      <tr>
-        <td class="small">${s.id}</td>
-        <td><strong>${s.title}</strong></td>
-        <td class="small">${s.artist}</td>
-        <td class="small">难度 ${'●'.repeat(s.difficulty)}${'○'.repeat(5-s.difficulty)}</td>
-        <td><span class="tag tag-${fmt.kind}">${fmt.label}</span></td>
-        <td class="small">${s.midi_data ? (s.midi_data.length + ' 字符') : '-'}</td>
-        <td>
-          <div class="actions">
-            <button class="btn-primary btn-small" onclick="triggerUpload(${s.id})">上传 .mid</button>
-            ${s.midi_data ? `<button class="btn-danger btn-small" onclick="clearMidi(${s.id})">清空</button>` : ''}
-          </div>
-        </td>
-      </tr>
-    `;
-  }).join('');
+  const tabs = `
+    <div class="tabs">
+      <button class="tab ${STATE.tab === 'songs' ? 'active' : ''}" onclick="switchTab('songs')">曲库</button>
+      <button class="tab ${STATE.tab === 'users' ? 'active' : ''}" onclick="switchTab('users')">用户</button>
+    </div>
+  `;
 
   root.innerHTML = `
     <div class="header-row">
       <div>
         <h1>EasyPiano Admin</h1>
-        <p class="sub">管理曲库的 MIDI 数据</p>
+        <p class="sub">${STATE.tab === 'songs' ? '管理曲库元数据与 MIDI 数据' : '查看用户信息与订阅状态'}</p>
       </div>
       <div>
         <span class="user-chip">${STATE.email}</span>
         <button class="btn-secondary btn-small" onclick="logout()" style="margin-left:8px">退出</button>
       </div>
     </div>
+    ${tabs}
     ${banner}
+    <div id="tab-body"></div>
+    <div id="modal-mount"></div>
+  `;
+
+  if (STATE.tab === 'songs') renderSongs();
+  else renderUsers();
+
+  if (STATE.editingSong) renderSongModal();
+  if (STATE.selectedUser) renderUserModal();
+}
+
+function renderSongs() {
+  const body = document.getElementById('tab-body');
+  const rows = STATE.songs.map((s) => {
+    const fmt = midiFormat(s.midi_data);
+    return `
+      <tr>
+        <td class="small">${s.id}</td>
+        <td><strong>${s.title}</strong></td>
+        <td class="small">${s.artist || '-'}</td>
+        <td class="small">难度 ${'●'.repeat(s.difficulty)}${'○'.repeat(5-s.difficulty)}</td>
+        <td class="small">${s.bpm} BPM · ${Math.floor(s.duration/60)}:${String(s.duration%60).padStart(2,'0')}</td>
+        <td><span class="tag ${s.is_free ? 'tag-free' : 'tag-paid'}">${s.is_free ? '免费' : '付费'}</span></td>
+        <td><span class="tag tag-${fmt.kind}">${fmt.label}</span></td>
+        <td>
+          <div class="actions">
+            <button class="btn-secondary btn-small" onclick="editSong(${s.id})">编辑</button>
+            <button class="btn-primary btn-small" onclick="triggerUpload(${s.id})">上传 .mid</button>
+            ${s.midi_data ? `<button class="btn-danger btn-small" onclick="clearMidi(${s.id})">清 MIDI</button>` : ''}
+            <button class="btn-danger btn-small" onclick="deleteSong(${s.id})">删除</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="toolbar">
+      <div class="sub">共 ${STATE.songs.length} 首</div>
+      <button class="btn-primary" onclick="newSong()">+ 新增曲目</button>
+    </div>
     <div class="table-card">
       <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>标题</th>
-            <th>艺术家</th>
-            <th>难度</th>
-            <th>格式</th>
-            <th>大小</th>
-            <th style="text-align:right">操作</th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th>ID</th><th>标题</th><th>艺术家</th><th>难度</th><th>BPM · 时长</th><th>付费</th><th>MIDI</th><th style="text-align:right">操作</th>
+        </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
   `;
 }
 
-// Boot
+function renderUsers() {
+  const body = document.getElementById('tab-body');
+  const rows = STATE.users.map((u) => `
+    <tr style="cursor:pointer" onclick="openUserDetail(${u.id})">
+      <td class="small">${u.id}</td>
+      <td><strong>${u.username}</strong>${u.is_admin ? ' <span class="tag tag-admin">ADMIN</span>' : ''}</td>
+      <td class="small">${u.email}</td>
+      <td class="small">Lv.${u.level} · ${u.xp} XP</td>
+      <td class="small">${fmtDate(u.created_at)}</td>
+    </tr>
+  `).join('');
+
+  const totalPages = Math.max(1, Math.ceil(STATE.userTotal / 20));
+
+  body.innerHTML = `
+    <div class="toolbar">
+      <input type="search" placeholder="搜索用户名或邮箱" value="${STATE.userQuery || ''}" id="user-search">
+      <div class="sub">${STATE.userTotal} 个用户 · 第 ${STATE.userPage}/${totalPages} 页</div>
+      <div>
+        <button class="btn-secondary btn-small" onclick="pageUsers(-1)" ${STATE.userPage <= 1 ? 'disabled' : ''}>上一页</button>
+        <button class="btn-secondary btn-small" onclick="pageUsers(1)" ${STATE.userPage >= totalPages ? 'disabled' : ''}>下一页</button>
+      </div>
+    </div>
+    <div class="table-card">
+      <table>
+        <thead><tr><th>ID</th><th>用户</th><th>邮箱</th><th>等级</th><th>注册时间</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan=5 class="small" style="text-align:center;padding:32px">没有匹配的用户</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+
+  const input = document.getElementById('user-search');
+  if (input) {
+    input.addEventListener('input', (e) => {
+      STATE.userQuery = e.target.value;
+      STATE.userPage = 1;
+      clearTimeout(window.__userSearchTimer);
+      window.__userSearchTimer = setTimeout(async () => {
+        await loadUsers();
+        render();
+        document.getElementById('user-search')?.focus();
+      }, 250);
+    });
+  }
+}
+
+function pageUsers(delta) {
+  STATE.userPage = Math.max(1, STATE.userPage + delta);
+  loadUsers().then(render);
+}
+
+function fmtDate(s) {
+  if (!s) return '-';
+  return new Date(s).toLocaleString('zh-CN');
+}
+
+function fmtDuration(sec) {
+  if (!sec) return '0 s';
+  const h = Math.floor(sec/3600);
+  const m = Math.floor((sec%3600)/60);
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m ${sec%60}s`;
+  return `${sec}s`;
+}
+
+function renderSongModal() {
+  const s = STATE.editingSong;
+  const isNew = !!s.__new;
+  const mount = document.getElementById('modal-mount');
+  mount.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this){STATE.editingSong=null;render()}">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>${isNew ? '新增曲目' : `编辑 #${s.id}`}</h2>
+          <button class="btn-secondary btn-small" onclick="STATE.editingSong=null;render()">取消</button>
+        </div>
+        <form id="song-form">
+          <div class="field"><label>标题 *</label><input name="title" required value="${s.title||''}"></div>
+          <div class="field"><label>艺术家</label><input name="artist" value="${s.artist||''}"></div>
+          <div class="field-row">
+            <div class="field"><label>难度 (1-5)</label>
+              <select name="difficulty">
+                ${[1,2,3,4,5].map(n => `<option value="${n}" ${(s.difficulty||1)===n?'selected':''}>${n}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field"><label>BPM</label><input name="bpm" type="number" min="30" max="300" value="${s.bpm||100}"></div>
+            <div class="field"><label>时长 (秒)</label><input name="duration" type="number" min="1" value="${s.duration||60}"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>拍号</label><input name="time_signature" value="${s.time_signature||'4/4'}"></div>
+            <div class="field"><label>调号</label><input name="key_signature" value="${s.key_signature||'C'}"></div>
+          </div>
+          <div class="field"><label>标签 (逗号分隔)</label><input name="tags" value="${s.tags||''}"></div>
+          <div class="switch-row">
+            <input type="checkbox" name="is_free" id="is_free" ${(s.is_free===undefined||s.is_free)?'checked':''}>
+            <label for="is_free" style="margin:0">免费曲目</label>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+            <button type="button" class="btn-secondary" onclick="STATE.editingSong=null;render()">取消</button>
+            <button type="submit" class="btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  document.getElementById('song-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveSong(e.target);
+  });
+}
+
+function editSong(id) {
+  STATE.editingSong = STATE.songs.find((s) => s.id === id);
+  render();
+}
+function newSong() {
+  STATE.editingSong = { __new: true, is_free: true };
+  render();
+}
+
+function renderUserModal() {
+  const { user, subscription, total_sessions, total_seconds, purchased_count } = STATE.selectedUser;
+  const mount = document.getElementById('modal-mount');
+  const subTag = subscription
+    ? `<span class="tag tag-sub-${subscription.status === 'active' ? 'active' : 'expired'}">${subscription.status.toUpperCase()}</span>`
+    : `<span class="tag tag-none">未订阅</span>`;
+  const subDetails = subscription ? `
+    <div class="detail-kv"><div class="k">套餐</div><div class="v">${subscription.plan} ${subTag}</div></div>
+    <div class="detail-kv"><div class="k">开始时间</div><div class="v">${fmtDate(subscription.started_at)}</div></div>
+    <div class="detail-kv"><div class="k">过期时间</div><div class="v">${subscription.expires_at ? fmtDate(subscription.expires_at) : '无（永久）'}</div></div>
+  ` : `<div class="detail-kv" style="grid-column:span 2"><div class="k">订阅状态</div><div class="v">${subTag} 从未订阅</div></div>`;
+
+  mount.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this){STATE.selectedUser=null;render()}">
+      <div class="modal" style="max-width: 600px">
+        <div class="modal-header">
+          <h2>用户 #${user.id} · ${user.username}</h2>
+          <button class="btn-secondary btn-small" onclick="STATE.selectedUser=null;render()">关闭</button>
+        </div>
+
+        <h2 style="font-size:14px;margin-top:4px;color:var(--ink2)">基本信息</h2>
+        <div class="detail-grid">
+          <div class="detail-kv"><div class="k">邮箱</div><div class="v">${user.email}</div></div>
+          <div class="detail-kv"><div class="k">手机</div><div class="v">${user.phone || '-'}</div></div>
+          <div class="detail-kv"><div class="k">等级 / XP</div><div class="v">Lv.${user.level} · ${user.xp}</div></div>
+          <div class="detail-kv"><div class="k">注册时间</div><div class="v">${fmtDate(user.created_at)}</div></div>
+          <div class="detail-kv"><div class="k">儿童账号</div><div class="v">${user.is_child ? '是' : '否'}</div></div>
+          <div class="detail-kv"><div class="k">管理员</div><div class="v">${user.is_admin ? '是' : '否'}</div></div>
+        </div>
+
+        <h2 style="font-size:14px;margin-top:20px;color:var(--ink2)">订阅 / 付费</h2>
+        <div class="detail-grid">
+          ${subDetails}
+          <div class="detail-kv"><div class="k">单曲购买</div><div class="v">${purchased_count} 首</div></div>
+        </div>
+
+        <h2 style="font-size:14px;margin-top:20px;color:var(--ink2)">活跃度</h2>
+        <div class="detail-grid">
+          <div class="detail-kv"><div class="k">练习次数</div><div class="v">${total_sessions}</div></div>
+          <div class="detail-kv"><div class="k">累计练习</div><div class="v">${fmtDuration(total_seconds)}</div></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">
+          ${user.is_admin
+            ? `<button class="btn-danger btn-small" onclick="toggleAdmin(${user.id}, false)">撤销 admin</button>`
+            : `<button class="btn-primary btn-small" onclick="toggleAdmin(${user.id}, true)">授予 admin</button>`
+          }
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+//==============================================================
+// BOOT
+//==============================================================
 if (STATE.token) {
-  loadSongs();
+  loadTab();
 } else {
   render();
 }

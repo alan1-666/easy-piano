@@ -136,8 +136,17 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			admin := protected.Group("/admin")
 			admin.Use(middleware.AdminMiddleware(db))
 			{
+				// Song management
+				admin.POST("/songs", adminHandler.CreateSong)
+				admin.PATCH("/songs/:id", adminHandler.UpdateSong)
+				admin.DELETE("/songs/:id", adminHandler.DeleteSong)
 				admin.POST("/songs/:id/midi", adminHandler.UploadSongMidi)
 				admin.DELETE("/songs/:id/midi", adminHandler.ClearSongMidi)
+
+				// User management
+				admin.GET("/users", adminHandler.ListUsers)
+				admin.GET("/users/:id", adminHandler.GetUser)
+				admin.PATCH("/users/:id", adminHandler.UpdateUser)
 			}
 		}
 	}
