@@ -105,7 +105,11 @@ async function playNote(midi: number, velocity = 80): Promise<void> {
   try {
     await chosen.sound.stopAsync().catch(() => {});
     await chosen.sound.setPositionAsync(0);
-    await chosen.sound.setRateAsync(rateFor(midi, base.midi), true);
+    // shouldCorrectPitch:false — we explicitly WANT pitch to change
+    // with rate (that's how we pitch-shift a base sample to other MIDI
+    // notes). Passing true would clamp everything back to the base
+    // note's pitch, which is the bug that made Twinkle sound monotone.
+    await chosen.sound.setRateAsync(rateFor(midi, base.midi), false);
     await chosen.sound.setVolumeAsync(Math.max(0.1, Math.min(1, velocity / 127)));
     await chosen.sound.playAsync();
     chosen.busyUntilMs = now + 1500; // same as DUR in gen-piano-samples.js
