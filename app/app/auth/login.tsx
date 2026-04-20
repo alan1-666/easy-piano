@@ -40,24 +40,23 @@ export default function LoginScreen() {
       await login(email, password);
       router.replace('/(tabs)');
     } catch (e: unknown) {
-      // TEMP in-app verbose error display for debugging
       // eslint-disable-next-line
       const err: any = e;
       console.log('[login] error:', err?.message, {
         code: err?.code,
         status: err?.response?.status,
         data: err?.response?.data,
-        hasRequest: !!err?.request,
-        config: err?.config?.url ? { url: err.config.url, baseURL: err.config.baseURL } : null,
       });
-      const parts = [
-        `msg: ${err?.message ?? e}`,
-        `code: ${err?.code ?? '-'}`,
-        `status: ${err?.response?.status ?? '-'}`,
-        `baseURL: ${err?.config?.baseURL ?? '-'}`,
-        `url: ${err?.config?.url ?? '-'}`,
-      ];
-      setError(parts.join(' | '));
+      const status = err?.response?.status;
+      if (status === 401) {
+        setError('邮箱或密码不正确');
+      } else if (status === 400) {
+        setError(err?.response?.data?.message ?? '请求格式不正确');
+      } else if (err?.code === 'ERR_NETWORK') {
+        setError('网络连接失败，检查网络或服务是否可用');
+      } else {
+        setError(err instanceof Error ? err.message : '登录失败，请重试');
+      }
     } finally {
       setLoading(false);
     }

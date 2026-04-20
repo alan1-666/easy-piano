@@ -63,7 +63,11 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   login: async (email, password) => {
-    const res = (await authApi.login(email, password)) as unknown as {
+    // Normalize email — users regularly type it with a leading space /
+    // an auto-capped first letter / mobile autocomplete artefacts.
+    // Emails are case-insensitive per RFC 5321 so lowercasing is safe.
+    const normalizedEmail = email.trim().toLowerCase();
+    const res = (await authApi.login(normalizedEmail, password)) as unknown as {
       user: ServerUser;
       access_token: string;
       refresh_token: string;
@@ -93,7 +97,8 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   register: async (username, email, password) => {
-    const res = (await authApi.register(username, email, '', password)) as unknown as {
+    const normalizedEmail = email.trim().toLowerCase();
+    const res = (await authApi.register(username, normalizedEmail, '', password)) as unknown as {
       user: ServerUser;
       access_token: string;
       refresh_token: string;
