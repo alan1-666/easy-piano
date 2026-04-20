@@ -33,6 +33,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	leaderboardService := service.NewLeaderboardService(db)
 
 	userHandler := handler.NewUserHandler(userService, courseService, achievementService)
+	adminHandler := handler.NewAdminHandler(db)
 	courseHandler := handler.NewCourseHandler(courseService)
 	lessonHandler := handler.NewLessonHandler(courseService, songService)
 	songHandler := handler.NewSongHandler(songService)
@@ -119,6 +120,16 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 			{
 				leaderboard.GET("/song/:id", leaderboardHandler.GetSongLeaderboard)
 				leaderboard.GET("/weekly", leaderboardHandler.GetWeeklyLeaderboard)
+			}
+
+			// Admin-only routes. AdminMiddleware is checked in addition
+			// to the protected group's regular auth — normal users hit
+			// 403 instead of seeing the endpoints exist.
+			admin := protected.Group("/admin")
+			admin.Use(middleware.AdminMiddleware(db))
+			{
+				admin.POST("/songs/:id/midi", adminHandler.UploadSongMidi)
+				admin.DELETE("/songs/:id/midi", adminHandler.ClearSongMidi)
 			}
 		}
 	}

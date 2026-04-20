@@ -22,6 +22,7 @@ type User struct {
 	XP           int            `gorm:"default:0" json:"xp"`
 	ParentID     *uint          `gorm:"index" json:"parent_id,omitempty"`
 	IsChild      bool           `gorm:"default:false" json:"is_child"`
+	IsAdmin      bool           `gorm:"default:false" json:"is_admin"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
