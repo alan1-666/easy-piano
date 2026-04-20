@@ -12,7 +12,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { Palette, FontWeight } from '../../src/theme';
 import { Button, Pill, RadialBg } from '../../src/components/common';
 import { Flame, StarIcon } from '../../src/components/Icons';
-import { mockUser, mockXpToNextLevel } from '../../src/utils/mockData';
+import { mockXpToNextLevel } from '../../src/utils/mockData';
 import { submitOrQueue } from '../../src/offline/practiceLogSync';
 import { completeLesson } from '../../src/api/courses';
 import { useUserStore } from '../../src/stores/userStore';
@@ -90,6 +90,7 @@ function getRank(score: number): { letter: string; color: string } {
 export default function GameResultScreen() {
   const router = useRouter();
   const isLoggedIn = useUserStore((s) => s.isLoggedIn);
+  const user = useUserStore((s) => s.user);
   const queryClient = useQueryClient();
   // useRef so the log only ever fires once even if the screen re-renders.
   const submittedRef = useRef(false);
@@ -111,6 +112,7 @@ export default function GameResultScreen() {
     missCount?: string;
     xpEarned?: string;
     accuracy?: string;
+    duration?: string;
     lessonId?: string;
     leftHand?: string;
     rightHand?: string;
@@ -128,6 +130,7 @@ export default function GameResultScreen() {
     missCount: getNumberParam(params.missCount, DEFAULT_RESULT.missCount),
     xpEarned: getNumberParam(params.xpEarned, DEFAULT_RESULT.xpEarned),
     accuracy: getNumberParam(params.accuracy, DEFAULT_RESULT.accuracy),
+    duration: getNumberParam(params.duration, 0),
     leftHand: getHandSummaryParam(params.leftHand, DEFAULT_RESULT.leftHand),
     rightHand: getHandSummaryParam(params.rightHand, DEFAULT_RESULT.rightHand),
   };
@@ -136,7 +139,9 @@ export default function GameResultScreen() {
   const totalNotes =
     result.perfectCount + result.greatCount + result.goodCount + result.missCount;
   const safeTotalNotes = Math.max(totalNotes, 1);
-  const xpAfter = mockUser.xp + result.xpEarned;
+  const currentXp = user?.xp ?? 0;
+  const currentLevel = user?.level ?? 1;
+  const xpAfter = currentXp + result.xpEarned;
 
   // Fire submissions once per result mount. params are already in URL —
   // no extra plumbing needed. We do two things in parallel:
@@ -163,7 +168,7 @@ export default function GameResultScreen() {
       great_count: result.greatCount,
       good_count: result.goodCount,
       miss_count: result.missCount,
-      duration: 0,
+      duration: result.duration,
     })
       .then(() => {
         // Stats and history may have changed — refresh the caches that
@@ -301,7 +306,7 @@ export default function GameResultScreen() {
               />
             </View>
             <Text style={styles.xpFoot}>
-              Lv.{mockUser.level} · {xpAfter} / {mockXpToNextLevel} XP
+              Lv.{currentLevel} · {xpAfter} / {mockXpToNextLevel} XP
             </Text>
           </View>
 

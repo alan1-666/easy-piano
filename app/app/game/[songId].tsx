@@ -274,6 +274,10 @@ export default function GameScreen() {
   const appStateRef = useRef(AppState.currentState);
   const activeNotesRef = useRef<Set<number>>(new Set());
   const previousMIDINotesRef = useRef<Set<number>>(new Set());
+  // Track actual play time so we can POST duration to /practice/log.
+  // Accumulates only while gameStatus === 'playing' (paused gaps don't count).
+  const playStartRef = useRef<number | null>(null);
+  const accumulatedMsRef = useRef(0);
   const lanePositions = useMemo(
     () =>
       Array.from(
@@ -355,6 +359,7 @@ export default function GameScreen() {
     if (countdownValue <= 0) {
       setGameStatus('playing');
       engineRef.current.start(performance.now());
+      playStartRef.current = Date.now();
       return;
     }
     const timer = setTimeout(() => {
@@ -416,6 +421,9 @@ export default function GameScreen() {
       left: { ...handStats.left, accuracy: calculateHandAccuracy(handStats.left) },
       right: { ...handStats.right, accuracy: calculateHandAccuracy(handStats.right) },
     };
+    // Wall-clock seconds of actual play time (paused gaps excluded).
+    const liveMs = playStartRef.current !== null ? Date.now() - playStartRef.current : 0;
+    const durationSec = Math.max(1, Math.round((accumulatedMsRef.current + liveMs) / 1000));
     router.replace({
       pathname: '/game/result',
       params: {
@@ -431,6 +439,7 @@ export default function GameScreen() {
         missCount: String(counts.miss),
         xpEarned: String(xpEarned),
         accuracy: accuracy.toFixed(1),
+        duration: String(durationSec),
         ...(lessonIdParam ? { lessonId: String(lessonIdParam) } : {}),
         leftHand: JSON.stringify(finalizedHandStats.left),
         rightHand: JSON.stringify(finalizedHandStats.right),
@@ -514,6 +523,11 @@ export default function GameScreen() {
   const handlePause = useCallback(() => {
     if (gameStatus === 'playing') {
       cancelAnimationFrame(frameIdRef.current);
+      // Bank the elapsed ms so pause gaps don't inflate duration.
+      if (playStartRef.current !== null) {
+        accumulatedMsRef.current += Date.now() - playStartRef.current;
+        playStartRef.current = null;
+      }
       setGameStatus('paused');
     }
   }, [gameStatus]);
@@ -533,6 +547,7 @@ export default function GameScreen() {
   const handleResume = useCallback(() => {
     if (gameStatus === 'paused') {
       engineRef.current.start(performance.now() - progress * gameSong.duration * 1000);
+      playStartRef.current = Date.now();
       setGameStatus('playing');
     }
   }, [gameStatus, gameSong.duration, progress]);
@@ -551,6 +566,8 @@ export default function GameScreen() {
     activeNotesRef.current = new Set();
     setHitGrades(new Map());
     setHandStats(buildInitialHandStats(gameSong));
+    playStartRef.current = null;
+    accumulatedMsRef.current = 0;
     setCountdownValue(3);
     setGameStatus('countdown');
   }, [gameSong, layout.canvasHeight, layout.judgmentLineY]);

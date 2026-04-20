@@ -16,8 +16,9 @@ import { ProgressBar, RadialBg } from '../../src/components/common';
 import { mockDailyGoalMinutes, getGreeting, formatDuration } from '../../src/utils/mockData';
 import { songHue } from '../../src/utils/songColors';
 import { useUserStore } from '../../src/stores/userStore';
-import { getMyStats } from '../../src/api/users';
+import { getMyStats, getMyProgress } from '../../src/api/users';
 import { getSongs } from '../../src/api/songs';
+import { getCourses, getLessons } from '../../src/api/courses';
 import { getHistory } from '../../src/api/practice';
 
 export default function HomeScreen() {
@@ -45,6 +46,45 @@ export default function HomeScreen() {
     enabled: isLoggedIn,
     staleTime: 30_000,
   });
+
+  const coursesQuery = useQuery({
+    queryKey: ['courses'],
+    queryFn: getCourses,
+    enabled: isLoggedIn,
+    staleTime: 60_000,
+  });
+
+  const progressQuery = useQuery({
+    queryKey: ['progress'],
+    queryFn: getMyProgress,
+    enabled: isLoggedIn,
+    staleTime: 30_000,
+  });
+
+  // "Current course" picks the lowest-level course that isn't fully
+  // complete. The lesson list for that course feeds the "3/10 完成" +
+  // "下一课" copy.
+  const sortedCourses = (coursesQuery.data ?? []).slice().sort((a, b) => a.level - b.level);
+  const activeCourse = sortedCourses[0]; // Level 1 for brand-new users
+
+  const activeCourseLessonsQuery = useQuery({
+    queryKey: ['lessons', activeCourse?.id],
+    queryFn: () => (activeCourse ? getLessons(activeCourse.id) : Promise.resolve([])),
+    enabled: !!activeCourse,
+    staleTime: 60_000,
+  });
+
+  const activeLessons = activeCourseLessonsQuery.data ?? [];
+  const progress = progressQuery.data ?? [];
+  const progressById = new Map(progress.map((p) => [p.lessonId, p]));
+  const completedLessonCount = activeLessons.filter(
+    (l) => progressById.get(l.id)?.status === 'completed',
+  ).length;
+  const nextLesson = activeLessons.find(
+    (l) => progressById.get(l.id)?.status !== 'completed',
+  );
+  const courseProgressPct =
+    activeLessons.length > 0 ? completedLessonCount / activeLessons.length : 0;
 
   const quickPlaySongs = (songsQuery.data?.items ?? []).slice(0, 5);
   const weekDays = ['一', '二', '三', '四', '五', '六', '日'];
@@ -118,35 +158,53 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-            <TouchableOpacity
-              style={styles.courseCard}
-              onPress={() => router.push('/course/1')}
-              activeOpacity={0.92}
-            >
-              <View style={styles.courseGlow} pointerEvents="none">
-                <RadialBg from={Palette.primary} to="transparent" cx={1} cy={0} rx={0.7} ry={0.7} />
-              </View>
-              <Text style={styles.courseLabel}>当前课程</Text>
-              <Text style={styles.courseTitle}>Level 1 · 钢琴启蒙</Text>
-              <Text style={styles.courseProgress}>3/10 课完成</Text>
-              <View style={{ marginTop: 16 }}>
-                <ProgressBar
-                  progress={0.3}
-                  height={6}
-                  color={Palette.primary}
-                  backgroundColor="rgba(255,255,255,0.14)"
-                />
-              </View>
-              <View style={styles.courseFoot}>
-                <Text style={styles.courseNext}>下一课：右手 do re mi</Text>
-                <View style={styles.courseCta}>
-                  <Play size={11} color="#fff" />
-                  <Text style={styles.courseCtaText}>继续</Text>
+          {activeCourse && (
+            <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+              <TouchableOpacity
+                style={styles.courseCard}
+                onPress={() => {
+                  if (nextLesson) {
+                    router.push(`/course/lesson/${nextLesson.id}`);
+                  } else {
+                    router.push(`/course/${activeCourse.id}`);
+                  }
+                }}
+                activeOpacity={0.92}
+              >
+                <View style={styles.courseGlow} pointerEvents="none">
+                  <RadialBg from={Palette.primary} to="transparent" cx={1} cy={0} rx={0.7} ry={0.7} />
                 </View>
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
+                <Text style={styles.courseLabel}>当前课程</Text>
+                <Text style={styles.courseTitle}>
+                  Level {activeCourse.level} · {activeCourse.title}
+                </Text>
+                <Text style={styles.courseProgress}>
+                  {completedLessonCount}/{activeLessons.length} 课完成
+                </Text>
+                <View style={{ marginTop: 16 }}>
+                  <ProgressBar
+                    progress={courseProgressPct}
+                    height={6}
+                    color={Palette.primary}
+                    backgroundColor="rgba(255,255,255,0.14)"
+                  />
+                </View>
+                <View style={styles.courseFoot}>
+                  <Text style={styles.courseNext} numberOfLines={1}>
+                    {nextLesson
+                      ? `下一课：${nextLesson.title}`
+                      : '已完成所有课时 🎉'}
+                  </Text>
+                  <View style={styles.courseCta}>
+                    <Play size={11} color="#fff" />
+                    <Text style={styles.courseCtaText}>
+                      {nextLesson ? '继续' : '复习'}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
 
           <Animated.View entering={FadeInDown.duration(400).delay(150)}>
             <View style={styles.goalCard}>

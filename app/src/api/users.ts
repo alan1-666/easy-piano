@@ -39,11 +39,11 @@ interface ServerProgress {
 
 interface ServerAchievement {
   id: number;
-  code: string;
-  title: string;
+  name: string;
   description: string;
   icon: string;
-  rarity?: string;
+  condition_type?: string;
+  condition_value?: number;
 }
 
 interface ServerUserAchievement {
@@ -108,7 +108,7 @@ export async function getMyAchievements(): Promise<AchievementWithUnlock[]> {
   );
   return data.data.achievements.map((a) => ({
     id: String(a.id),
-    name: a.title,
+    name: a.name,
     description: a.description,
     icon: a.icon,
     unlockedAt: unlockedDates.get(a.id),

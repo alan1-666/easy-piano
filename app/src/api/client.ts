@@ -1,17 +1,16 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { tokenStorage } from '../utils/storage';
 
-// Dev via SSH tunnel. The staging server at 117.72.160.220:8080 is
-// behind a macOS-host VPN, which the iOS simulator's NSURLSession
-// doesn't honour (Safari + host curl do; RN doesn't). Workaround: open
-// `ssh -L 18080:localhost:8080 root@117.72.160.220` on the host and
-// point the app at the local end of that tunnel — simulator sees it
-// as plain localhost traffic that never leaves the machine.
+// Base URL is env-driven: set EXPO_PUBLIC_API_BASE_URL at build/run time
+// to point at whichever environment you want. Fallback is a localhost
+// SSH tunnel used during staging (see server/README for the tunnel
+// command) — the iOS simulator's NSURLSession doesn't honour the
+// host's system proxy, so we terminate that traffic on localhost.
 //
-// Before shipping, switch this to the public HTTPS endpoint
-// (EXPO_PUBLIC_API_BASE_URL once we have one) and ATS can go back to
-// default-deny.
-const API_BASE_URL = 'http://localhost:18080/v1';
+// Prod will eventually be https://api.easypiano.app/v1 or similar,
+// served by Caddy (see server/Caddyfile).
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:18080/v1';
 
 const client = axios.create({
   baseURL: API_BASE_URL,
