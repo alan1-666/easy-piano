@@ -40,8 +40,24 @@ export default function LoginScreen() {
       await login(email, password);
       router.replace('/(tabs)');
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : '登录失败，请重试';
-      setError(message);
+      // TEMP in-app verbose error display for debugging
+      // eslint-disable-next-line
+      const err: any = e;
+      console.log('[login] error:', err?.message, {
+        code: err?.code,
+        status: err?.response?.status,
+        data: err?.response?.data,
+        hasRequest: !!err?.request,
+        config: err?.config?.url ? { url: err.config.url, baseURL: err.config.baseURL } : null,
+      });
+      const parts = [
+        `msg: ${err?.message ?? e}`,
+        `code: ${err?.code ?? '-'}`,
+        `status: ${err?.response?.status ?? '-'}`,
+        `baseURL: ${err?.config?.baseURL ?? '-'}`,
+        `url: ${err?.config?.url ?? '-'}`,
+      ];
+      setError(parts.join(' | '));
     } finally {
       setLoading(false);
     }

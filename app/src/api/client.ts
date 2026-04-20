@@ -1,9 +1,17 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { tokenStorage } from '../utils/storage';
 
-// The test / staging server. When we stand up a proper prod deployment
-// this should move to an env-driven config (EXPO_PUBLIC_API_BASE_URL).
-const API_BASE_URL = 'http://117.72.160.220:8080/v1';
+// Dev via SSH tunnel. The staging server at 117.72.160.220:8080 is
+// behind a macOS-host VPN, which the iOS simulator's NSURLSession
+// doesn't honour (Safari + host curl do; RN doesn't). Workaround: open
+// `ssh -L 18080:localhost:8080 root@117.72.160.220` on the host and
+// point the app at the local end of that tunnel — simulator sees it
+// as plain localhost traffic that never leaves the machine.
+//
+// Before shipping, switch this to the public HTTPS endpoint
+// (EXPO_PUBLIC_API_BASE_URL once we have one) and ATS can go back to
+// default-deny.
+const API_BASE_URL = 'http://localhost:18080/v1';
 
 const client = axios.create({
   baseURL: API_BASE_URL,
